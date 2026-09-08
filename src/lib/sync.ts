@@ -27,6 +27,7 @@ export function isValidAttribute(value: unknown): value is Attribute {
     Number.isFinite(a.round) &&
     Number.isFinite(a.writtenAt) &&
     isSide(a.side) &&
+    (a.copyOf === undefined || typeof a.copyOf === 'string') &&
     Number.isFinite(a.x) &&
     Number.isFinite(a.y)
   )

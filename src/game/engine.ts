@@ -147,7 +147,12 @@ export function pickSystemTransfer(
   attributes: readonly Attribute[],
   config: GameConfig,
 ): string[] {
-  const held = attributes.filter((a) => a.side === 'ys')
+  // Only what the participant still holds and the digital self does not already
+  // have a copy of. The original is never taken away — it is duplicated.
+  const copied = new Set(
+    attributes.filter((a) => a.side === 'ds' && a.copyOf).map((a) => a.copyOf as string),
+  )
+  const held = attributes.filter((a) => a.side === 'ys' && !copied.has(a.id))
   if (!held.length) return []
 
   // Exactly what was drawn, clamped to what the participant actually holds. A
@@ -172,12 +177,13 @@ export function pickSystemTransfer(
  * a replica of the static self on the left.
  */
 export function reconstruction(attributes: readonly Attribute[]): number {
-  if (!attributes.length) return 0
+  const written = attributes.filter((a) => !a.copyOf).length
+  if (!written) return 0
   const received = attributes.filter((a) => a.side === 'ds').length
-  // Deliberately over everything written, not everything still in play: an
-  // attribute the participant let go of is one the digital self can never have,
-  // so destroying enough of yourself puts a full replica out of reach.
-  return received / attributes.length
+  // Measured against everything ever written, not everything still in play: an
+  // original the participant binned before it was copied is one the digital self
+  // can never have, so binning enough puts a full replica out of reach.
+  return Math.min(1, received / written)
 }
 
 /* -----------------------------------------------------------------------------

@@ -16,7 +16,7 @@ export function ChipLayer({
   allowDiscard,
   interactive,
   onMove,
-  onSetSide,
+  onCopyToDigitalSelf,
   onDiscard,
   onDragging,
 }: {
@@ -24,7 +24,7 @@ export function ChipLayer({
   allowDiscard: boolean
   interactive: boolean
   onMove: (id: string, x: number, y: number) => void
-  onSetSide: (id: string, side: DropSide) => void
+  onCopyToDigitalSelf: (id: string) => void
   onDiscard: (id: string) => void
   /** The id of the chip in hand, or null. */
   onDragging: (id: string | null) => void
@@ -121,10 +121,10 @@ export function ChipLayer({
             key={a.id}
             attribute={a}
             spawnFrom={isNew ? spawn : undefined}
-            canDiscard={allowDiscard && a.side === 'ys'}
+            canDiscard={allowDiscard && a.side !== 'gone'}
             interactive={interactive}
             onMove={onMove}
-            onSetSide={onSetSide}
+            onCopyToDigitalSelf={onCopyToDigitalSelf}
             onDiscard={onDiscard}
             onHover={setHover}
             onDragState={(active) => {

@@ -2,9 +2,13 @@ import type { DimensionId } from './prompts'
 import type { GameConfig } from './config'
 
 /**
- * Where an attribute currently lives. "gone" is an attribute the participant
- * let go of rather than handing over — the canvas notes ask for both, and it is
- * what makes "removed" and "received" two different numbers.
+ * Which side of the canvas a chip sits on. "gone" is one the participant put in
+ * the bin, from either side.
+ *
+ * An attribute the digital self receives is a COPY: the original stays with the
+ * participant and a second row appears on the right, pointing back at it through
+ * `copyOf`. Both are chips in their own right — either can be moved around, and
+ * either can be binned.
  */
 export type Side = 'ys' | 'ds' | 'gone'
 
@@ -23,9 +27,14 @@ export interface Attribute {
   /** ms since the session timer started. */
   writtenAt: number
   side: Side
-  /** Set when the attribute leaves the self, either way. */
+  /**
+   * For a chip on the digital-self side, the id of the original it was copied
+   * from. Undefined on the participant's own rows.
+   */
+  copyOf?: string
+  /** When this chip appeared on the digital self, or went in the bin. */
   transferredAt?: number
-  /** How it left — the participant moved it, or the system took it. */
+  /** Who did it — the participant, or the system at the end of a round. */
   transferredBy?: 'system' | 'participant'
   /** Position on the canvas, in design units, relative to the frame origin. */
   x: number
@@ -84,12 +93,24 @@ export interface Tally {
   toBeGained: number
 }
 
+/** Originals only: a copy on the digital-self side was never typed twice. */
+export function originals(attributes: readonly Attribute[]): Attribute[] {
+  return attributes.filter((a) => !a.copyOf)
+}
+
 export function tally(attributes: Attribute[]): Tally {
-  const totalWritten = attributes.length
+  const totalWritten = originals(attributes).length
   const received = attributes.filter((a) => a.side === 'ds').length
   const left = attributes.filter((a) => a.side === 'ys').length
-  // Removed counts everything that has left the self: handed over, or let go
-  // of. When nothing is let go, removed equals received and left equals to be
-  // gained, which is the state the comp is drawn in.
-  return { totalWritten, removed: totalWritten - left, left, received, toBeGained: left }
+  // Everything binned, from either side.
+  const removed = attributes.filter((a) => a.side === 'gone').length
+
+  // What the digital self could still be given: attributes the participant
+  // still holds that it does not already have a copy of.
+  const copied = new Set(
+    attributes.filter((a) => a.side === 'ds' && a.copyOf).map((a) => a.copyOf as string),
+  )
+  const toBeGained = attributes.filter((a) => a.side === 'ys' && !copied.has(a.id)).length
+
+  return { totalWritten, removed, left, received, toBeGained }
 }

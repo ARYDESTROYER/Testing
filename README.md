@@ -40,40 +40,43 @@ For a real run: `npm run build && npm start`.
 2. **START.** The facilitator explains the canvas out loud, then the participant
    presses START and the timer runs.
 3. **Rounds.** One prompt at a time, 30 seconds each, eight rounds by default —
-   one per attribute dimension. The prompt is drawn at random from that
-   dimension's pool of four, so no two participants get the same sequence.
-   The participant types a word or a whole phrase; each one lands on the canvas
-   as a chip beside their self.
-4. **The system takes some.** At the end of each round the system hands a random
-   3 to 5 of the participant's attributes to the digital self and says which. The
-   count is drawn per round rather than fixed per participant: people write two
-   attributes in thirty seconds or they write ten, and a fixed quota would not
-   survive that.
-5. **The participant moves the rest.** Chips can be dragged, thrown, clicked, and
-   dropped on either figure for the whole session. Dropping one on the digital
-   self hands it over; dropping it back on the self takes it back; dropping it
-   into the "let go" well destroys it, which is why *removed* and *received* are
-   two different numbers in the table.
+   one per attribute dimension. The big clock counts that prompt and starts over
+   at each new one: 0 to 30, back to 0, 0 to 30 again. The prompt is drawn at
+   random from that dimension's pool of four, so no two participants get the same
+   sequence. The participant types a word or a whole phrase; each one lands on
+   the canvas as a chip beside their self.
+4. **The system copies some over.** At the end of each round the system gives the
+   digital self a random 3 to 5 of the participant's attributes and says which.
+   They are **copied, not moved**: the original stays on the participant's side
+   and a second chip appears on the right, so the attribute is now held at both
+   ends. The count is drawn per round rather than fixed per participant: people
+   write two attributes in thirty seconds or they write ten, and a fixed quota
+   would not survive that.
+5. **The participant decides what to keep.** Chips stay draggable, throwable and
+   clickable for the whole session. Dropping one on the digital self gives it a
+   copy; dropping any chip into the "let go" well bins it — **from either side**,
+   so a participant can take something off their twin as readily as off
+   themselves.
 6. **The digital self rebuilds.** It starts dark and deformed and becomes a
    replica of the static self on the left as it receives attributes. The
-   reconstruction is measured against everything ever written, so attributes that
-   were destroyed rather than handed over put a full replica permanently out of
-   reach.
+   reconstruction is measured against everything ever written, so an original
+   binned before it was ever copied puts a full replica permanently out of reach.
 7. **The verdict.** Green or red, whenever the participant wants. Writing closes
    after the last round but the canvas stays live until they choose.
 
 ### The attribute table
 
-| counter        | meaning                                                     |
-| -------------- | ----------------------------------------------------------- |
-| total written  | everything the participant typed                            |
-| removed        | everything that has left their self, handed over or let go   |
-| left           | still theirs                                                |
-| received       | what the digital self holds                                 |
-| to be gained   | what it could still be given                                |
+| counter        | meaning                                                        |
+| -------------- | -------------------------------------------------------------- |
+| total written  | everything the participant typed; a copy is not a second answer |
+| removed        | everything binned, from either side                             |
+| left           | still on the participant's own side                             |
+| received       | what the digital self holds                                     |
+| to be gained   | what it could still be given, ignoring what it already has      |
 
-With nothing destroyed, `removed == received` and `left == to be gained`, which
-is the state the Figma comp is drawn in.
+Because handing something over copies it, an attribute can be counted in both
+*left* and *received* at once — that is the point. *Removed* only moves when a
+chip goes in the bin.
 
 ---
 
@@ -264,13 +267,12 @@ choice rather than an oversight:
 
 ## Open questions for the study
 
-- **Letting go.** The canvas notes say participants "give away **or** destroy"
-  attributes, but the comp is drawn with `removed` and `received` equal, which
-  only happens when nothing is destroyed. The well is implemented and on by
-  default; turn it off with `discard=0` if handing over should be the only way
-  to shed an attribute.
 - **Session length.** Eight dimensions at 30 seconds is four minutes of writing.
   The notes mention five. `seconds` and `rounds` cover either.
-- **The reconstruction measure.** The digital self is complete when it holds
-  everything the participant ever wrote. If destroying should not cap it, that is
-  one line in `reconstruction()` in `src/game/engine.ts`.
+- **The reconstruction measure.** The digital self is complete when it holds a
+  copy of everything the participant ever wrote. If binning an original should
+  not cap that, it is one line in `reconstruction()` in `src/game/engine.ts`.
+- **The comp's numbers.** The Figma comp shows `removed 5, received 5`, which is
+  what a *move* produces. Now that handing over copies, `removed` only counts
+  what was binned, so the two columns say different things. That is deliberate;
+  say the word if the comp's reading was the intended one.

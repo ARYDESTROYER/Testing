@@ -59,6 +59,8 @@ const SCHEMA = [
      round          INTEGER NOT NULL,
      written_at     INTEGER NOT NULL,
      side           TEXT NOT NULL,
+     -- For a chip on the digital-self side, the original it was copied from.
+     copy_of        TEXT,
      transferred_at INTEGER,
      transferred_by TEXT,
      x              REAL NOT NULL,
@@ -107,6 +109,15 @@ async function migrateAttributeKey(db: Client): Promise<void> {
             transferred_at, transferred_by, x, y
      FROM attributes_old`,
   )
+}
+
+/** Adds copy_of to a table created before transfers became copies. */
+async function migrateCopyOf(db: Client): Promise<void> {
+  const info = await db.execute(`PRAGMA table_info(attributes)`)
+  if (!info.rows.length) return
+  if (info.rows.some((r) => String(r.name) === 'copy_of')) return
+  console.warn('[db] adding attributes.copy_of')
+  await db.execute(`ALTER TABLE attributes ADD COLUMN copy_of TEXT`)
   await db.execute(`DROP TABLE attributes_old`)
 }
 
@@ -116,6 +127,7 @@ function init(): Promise<void> {
     ready = (async () => {
       await migrateAttributeKey(db)
       for (const stmt of SCHEMA) await db.execute(stmt)
+      await migrateCopyOf(db)
     })().catch((err) => {
       // Let the next call retry rather than caching a rejected promise forever.
       ready = null
@@ -250,10 +262,12 @@ export async function saveAttributes(id: string, attributes: Attribute[]): Promi
     conn.batch(
     attributes.map((a) => ({
       sql: `INSERT INTO attributes
-              (id, session_id, text, dimension, prompt, round, written_at, side, transferred_at, transferred_by, x, y)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, session_id, text, dimension, prompt, round, written_at, side, copy_of,
+               transferred_at, transferred_by, x, y)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(session_id, id) DO UPDATE SET
               side = excluded.side,
+              copy_of = excluded.copy_of,
               transferred_at = excluded.transferred_at,
               transferred_by = excluded.transferred_by,
               x = excluded.x,
@@ -267,6 +281,7 @@ export async function saveAttributes(id: string, attributes: Attribute[]): Promi
         a.round,
         Math.round(a.writtenAt),
         a.side,
+        a.copyOf ?? null,
         a.transferredAt == null ? null : Math.round(a.transferredAt),
         a.transferredBy ?? null,
         a.x,
@@ -331,7 +346,7 @@ export async function listSessions(): Promise<SessionSummary[]> {
   const res = await withDb((conn) =>
     conn.execute(`
     SELECT s.*,
-           (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id) AS attribute_count,
+           (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.copy_of IS NULL) AS attribute_count,
            (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'ds') AS received_count,
            (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'ys') AS kept_count,
            (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'gone') AS discarded_count
@@ -374,6 +389,7 @@ export async function getSession(id: string): Promise<SessionRecord | null> {
       round: Number(r.round),
       writtenAt: Number(r.written_at),
       side: r.side as Attribute['side'],
+      copyOf: r.copy_of == null ? undefined : String(r.copy_of),
       transferredAt: r.transferred_at == null ? undefined : Number(r.transferred_at),
       transferredBy: (r.transferred_by as Attribute['transferredBy']) ?? undefined,
       x: Number(r.x),
@@ -393,7 +409,7 @@ export async function allAttributeRows(): Promise<Record<string, unknown>[]> {
     conn.execute(`
     SELECT s.code, s.name, s.created_at AS session_created_at, s.end_reason, s.duration_ms,
            a.id AS attribute_id, a.text, a.dimension, a.prompt, a.round,
-           a.written_at, a.side, a.transferred_at, a.transferred_by, a.x, a.y
+           a.written_at, a.side, a.copy_of, a.transferred_at, a.transferred_by, a.x, a.y
     FROM attributes a
     JOIN sessions s ON s.id = a.session_id
     ORDER BY s.created_at DESC, a.written_at ASC

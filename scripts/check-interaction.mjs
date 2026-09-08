@@ -70,9 +70,25 @@ check('chip widths are measured against the rendered font', font.matches, font.f
    movement between down and up and cannot catch a dead-zone bug. A real
    trackpad or finger drifts a pixel or two, which is several design units on a
    scaled stage — so drive it by hand. */
+// Handing an attribute over copies it, so the original stays on the left. Tap a
+// chip whose text the digital self does not already have, or the second tap is
+// correctly a no-op.
+const copiedTexts = new Set()
+const freshChip = async () => {
+  const chips = await page.locator('.chip[data-side="ys"]').all()
+  for (const c of chips) {
+    const t = (await c.textContent())?.trim()
+    if (t && !copiedTexts.has(t)) return { locator: c, text: t }
+  }
+  return null
+}
+
 const tap = async (drift) => {
   const before = await page.evaluate(() => document.querySelectorAll('.chip[data-side="ds"]').length)
-  const box = await page.locator('.chip[data-side="ys"]').first().boundingBox()
+  const target = await freshChip()
+  if (!target) return { before, after: before, text: null }
+  copiedTexts.add(target.text)
+  const box = await target.locator.boundingBox()
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2
   await page.mouse.move(x, y)
@@ -84,15 +100,23 @@ const tap = async (drift) => {
   await page.mouse.up()
   await page.waitForTimeout(1600)
   const after = await page.evaluate(() => document.querySelectorAll('.chip[data-side="ds"]').length)
-  return { before, after }
+  const stillMine = await page.evaluate(
+    (t) => [...document.querySelectorAll('.chip[data-side="ys"]')].some((e) => e.textContent.trim() === t),
+    target.text,
+  )
+  return { before, after, text: target.text, stillMine }
 }
 
 for (const drift of [0, 1, 3]) {
-  const { before, after } = await tap(drift)
+  const { before, after, text, stillMine } = await tap(drift)
   check(
-    `a tap with ${drift}px of pointer drift hands a chip to the digital self`,
+    `a tap with ${drift}px of pointer drift gives the digital self a copy`,
     after === before + 1,
-    `${before} -> ${after}`,
+    `"${text}" ${before} -> ${after}`,
+  )
+  check(
+    `and "${text}" stays on the participant's own side`,
+    stillMine === true,
   )
 }
 
@@ -101,10 +125,15 @@ const revealSamples = await page.evaluate(async () => {
   const el = document.querySelector('.twin-reveal')
   const read = () => Number(getComputedStyle(el).getPropertyValue('--reveal'))
   const before = read()
-  // Hand a chip over and watch the property across the next few frames.
-  document.querySelector('.chip[data-side="ys"]')?.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+  // Hand a chip over and watch the property across the next few frames. Pick one
+  // the digital self does not already have, or the keypress is a no-op.
+  const taken = new Set(
+    [...document.querySelectorAll('.chip[data-side="ds"]')].map((e) => e.textContent.trim()),
   )
+  const fresh = [...document.querySelectorAll('.chip[data-side="ys"]')].find(
+    (e) => !taken.has(e.textContent.trim()),
+  )
+  fresh?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
   const samples = []
   for (let i = 0; i < 8; i++) {
     await new Promise((r) => setTimeout(r, 90))
@@ -179,6 +208,63 @@ const atControls = await page.evaluate(() =>
   }),
 )
 check('every control is reachable at its centre', atControls.every((v) => v === 'reachable'), atControls.join(', '))
+
+/* --- a chip on the digital self can be binned too -------------------------- */
+{
+  const dsChip = page.locator('.chip[data-side="ds"]').first()
+  const dsText = (await dsChip.textContent())?.trim()
+  const box = await dsChip.boundingBox()
+  const well = await page.locator('.discard-well').boundingBox()
+  const before = await page.evaluate(() => document.querySelectorAll('.chip[data-side="ds"]').length)
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  const tx = well.x + well.width / 2
+  const ty = well.y + well.height / 2
+  for (let i = 1; i <= 20; i++) {
+    await page.mouse.move(
+      box.x + box.width / 2 + ((tx - box.x - box.width / 2) * i) / 20,
+      box.y + box.height / 2 + ((ty - box.y - box.height / 2) * i) / 20,
+    )
+    await page.waitForTimeout(12)
+  }
+  const armed = await page.evaluate(
+    () => document.querySelector('.discard-well')?.dataset.armed === 'true',
+  )
+  await page.mouse.up()
+  await page.waitForTimeout(1400)
+  const after = await page.evaluate(() => document.querySelectorAll('.chip[data-side="ds"]').length)
+
+  check('the bin arms for a chip dragged from the digital self', armed, `"${dsText}"`)
+  check('a chip can be binned from the digital self', after === before - 1, `${before} -> ${after}`)
+}
+
+/* --- the timer counts each prompt, and starts over ------------------------- */
+{
+  const p2 = await browser.newPage({ viewport: { width: 1792, height: 1120 } })
+  await p2.goto(`${BASE}/?seconds=5&rounds=4&coach=0`, { waitUntil: 'networkidle' })
+  await p2.waitForTimeout(1200)
+  await p2.fill('input[aria-label="Enter your name"]', 'Timer Check')
+  await p2.keyboard.press('Enter')
+  await p2.waitForSelector('button[tabindex="0"]:has-text("START")')
+  await p2.click('button:has-text("START")')
+
+  const read = () => p2.locator('.t-timer').innerText()
+  const seen = []
+  for (let i = 0; i < 26; i++) {
+    seen.push((await read()).trim())
+    await p2.waitForTimeout(500)
+  }
+  await p2.close()
+
+  const secs = seen.map((t) => Number(t.split(':')[1]))
+  const restarts = secs.filter((v, i) => i > 0 && v < secs[i - 1]).length
+  check(
+    'the timer restarts at each prompt instead of running on',
+    restarts >= 2 && Math.max(...secs) <= 5,
+    `${seen.join(' ')} (${restarts} restarts, peak ${Math.max(...secs)}s of a 5s prompt)`,
+  )
+}
 
 await browser.close()
 console.log(failures.length ? `\n${failures.length} problem(s)` : '\nall interaction checks passed')

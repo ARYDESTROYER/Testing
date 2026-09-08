@@ -322,12 +322,18 @@ export function EndCard({
           </div>
           <div className="stat">
             <b>{tally.received}</b>
-            <span>transferred</span>
+            <span>on the twin</span>
           </div>
           <div className="stat">
             <b>{tally.left}</b>
-            <span>kept</span>
+            <span>still yours</span>
           </div>
+          {tally.removed > 0 && (
+            <div className="stat">
+              <b>{tally.removed}</b>
+              <span>let go</span>
+            </div>
+          )}
           <div className="stat">
             <b>{`${mm}:${String(ss).padStart(2, '0')}`}</b>
             <span>on the canvas</span>

@@ -57,7 +57,7 @@ export interface GameApi {
   start: () => void
   submit: (text: string) => void
   moveAttribute: (id: string, x: number, y: number) => void
-  setSide: (id: string, side: DropSide, by: 'participant') => void
+  copyToDigitalSelf: (id: string, by: 'participant') => void
   discard: (id: string) => void
   /** Which chip is in the participant's hand, so the system does not take it. */
   setDragging: (id: string | null) => void
@@ -229,51 +229,53 @@ export function useGame(): GameApi {
     [commit],
   )
 
-  /** A chip dropped on the other figure changes hands. */
-  const setSide = useCallback(
-    (id: string, side: DropSide, by: 'participant') => {
+  /**
+   * Hand an attribute to the digital self. It is COPIED, not moved: the original
+   * stays with the participant and a second chip appears on the right, so both
+   * ends hold it and either can be binned.
+   */
+  const copyToDigitalSelf = useCallback(
+    (id: string, by: 'participant') => {
       const s = ref.current
-      const current = s.attributes.find((a) => a.id === id)
-      if (!current || current.side === side) return
-      // Letting go is final. Without this a discarded chip could be brought back
-      // from the keyboard, mid-dissolve and no longer draggable.
-      if (current.side === 'gone') return
+      const source = s.attributes.find((a) => a.id === id)
+      if (!source || source.side !== 'ys') return
+      // One copy per attribute; a second tap should do nothing.
+      const already = s.attributes.some((a) => a.side === 'ds' && a.copyOf === id)
+      if (already) return
 
       const boxes = s.attributes
-        .filter((a) => a.side === side && a.id !== id)
+        .filter((a) => a.side === 'ds')
         .map((a) => ({ x: a.x, y: a.y, w: chipWidth(a.text), h: CHIP_H }))
-      const { x, y } = placeChip(rngRef.current, side, chipWidth(current.text), boxes)
+      const { x, y } = placeChip(rngRef.current, 'ds', chipWidth(source.text), boxes)
 
-      const next: Attribute = {
-        ...current,
-        side,
+      const copy: Attribute = {
+        ...source,
+        id: attributeId(),
+        copyOf: id,
+        side: 'ds',
         x,
         y,
-        transferredAt: side === 'ds' ? s.sessionMs : undefined,
-        transferredBy: side === 'ds' ? by : undefined,
+        transferredAt: s.sessionMs,
+        transferredBy: by,
       }
 
-      writerRef.current?.attribute(next)
+      writerRef.current?.attribute(copy)
       writerRef.current?.event(
-        event(side === 'ds' ? 'attribute_transferred' : 'attribute_returned', s.sessionMs, {
-          id,
-          text: next.text,
-          by,
-        }),
+        event('attribute_transferred', s.sessionMs, { id, copyId: copy.id, text: copy.text, by }),
       )
 
-      const attributes = s.attributes.map((a) => (a.id === id ? next : a))
+      const attributes = [...s.attributes, copy]
       commit({
         ...s,
         attributes,
         reveal: reconstruction(attributes),
-        arrivalTick: side === 'ds' ? s.arrivalTick + 1 : s.arrivalTick,
+        arrivalTick: s.arrivalTick + 1,
       })
     },
     [commit],
   )
 
-  /** Letting an attribute go: removed from the self, never received. */
+  /** Binning a chip, from either side of the canvas. */
   const discard = useCallback(
     (id: string) => {
       const s = ref.current
@@ -288,7 +290,12 @@ export function useGame(): GameApi {
       }
       writerRef.current?.attribute(next)
       writerRef.current?.event(
-        event('attribute_discarded', s.sessionMs, { id, text: next.text, from: current.side }),
+        event('attribute_discarded', s.sessionMs, {
+          id,
+          text: next.text,
+          from: current.side,
+          copyOf: current.copyOf,
+        }),
       )
 
       const attributes = s.attributes.map((a) => (a.id === id ? next : a))
@@ -390,41 +397,45 @@ export function useGame(): GameApi {
 
       if (takenIds.length) {
         const taken = new Set(takenIds)
-        const landed: Attribute[] = []
+        const copies: Attribute[] = []
         const occupied = attributes
           .filter((a) => a.side === 'ds')
           .map((a) => ({ x: a.x, y: a.y, w: chipWidth(a.text), h: CHIP_H }))
 
-        attributes = attributes.map((a) => {
-          if (!taken.has(a.id)) return a
-          const { x, y } = placeChip(rng, 'ds', chipWidth(a.text), occupied)
-          occupied.push({ x, y, w: chipWidth(a.text), h: CHIP_H })
-          const next: Attribute = {
-            ...a,
+        for (const source of attributes) {
+          if (!taken.has(source.id)) continue
+          const { x, y } = placeChip(rng, 'ds', chipWidth(source.text), occupied)
+          occupied.push({ x, y, w: chipWidth(source.text), h: CHIP_H })
+          copies.push({
+            ...source,
+            id: attributeId(),
+            copyOf: source.id,
             side: 'ds',
             x,
             y,
             transferredAt: sessionMs,
             transferredBy: 'system',
-          }
-          landed.push(next)
-          return next
-        })
+          })
+        }
 
-        writerRef.current?.attributes(landed)
+        // The originals are untouched: the digital self receives a copy.
+        attributes = [...attributes, ...copies]
+
+        writerRef.current?.attributes(copies)
         writerRef.current?.event(
           event('system_transfer', sessionMs, {
             round: s.roundIndex,
             ids: takenIds,
-            texts: landed.map((a) => a.text),
+            copyIds: copies.map((c) => c.id),
+            texts: copies.map((c) => c.text),
           }),
         )
         arrivalTick += 1
 
         if (s.config.showCoachOverlays) {
-          overlay = { kind: 'transferred', ids: takenIds }
+          overlay = { kind: 'transferred', ids: copies.map((c) => c.id) }
           writerRef.current?.event(
-            event('overlay_shown', sessionMs, { kind: 'transferred', count: takenIds.length }),
+            event('overlay_shown', sessionMs, { kind: 'transferred', count: copies.length }),
           )
         }
       }
@@ -465,7 +476,7 @@ export function useGame(): GameApi {
     start,
     submit,
     moveAttribute,
-    setSide,
+    copyToDigitalSelf,
     discard,
     setDragging,
     dismissOverlay,

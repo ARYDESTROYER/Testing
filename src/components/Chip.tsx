@@ -66,7 +66,7 @@ export function Chip({
   canDiscard,
   interactive,
   onMove,
-  onSetSide,
+  onCopyToDigitalSelf,
   onDiscard,
   onHover,
   onDragState,
@@ -79,7 +79,8 @@ export function Chip({
   /** False while an instruction card is up, or once the session has ended. */
   interactive: boolean
   onMove: (id: string, x: number, y: number) => void
-  onSetSide: (id: string, side: DropSide) => void
+  /** Hand this attribute to the digital self; the original stays where it is. */
+  onCopyToDigitalSelf: (id: string) => void
   onDiscard: (id: string) => void
   /** Tells the canvas which drop target the pointer is currently over. */
   onHover: (target: HoverTarget) => void
@@ -101,7 +102,7 @@ export function Chip({
   // through a ref so it never has to be torn down and rebuilt mid-drag.
   const handlers = useRef({
     onMove,
-    onSetSide,
+    onCopyToDigitalSelf,
     onDiscard,
     onHover,
     onDragState,
@@ -110,7 +111,7 @@ export function Chip({
   })
   handlers.current = {
     onMove,
-    onSetSide,
+    onCopyToDigitalSelf,
     onDiscard,
     onHover,
     onDragState,
@@ -227,7 +228,10 @@ export function Chip({
         self.pointerY - pressRef.current.y,
       )
       if (travelled <= TAP_SLOP_PX) {
-        land(() => handlers.current.onSetSide(attribute.id, side === 'ys' ? 'ds' : 'ys'))
+        // A tap on the participant's own chip hands a copy over. A chip already
+        // on the digital self has nowhere to go but the bin, so a tap does
+        // nothing to it.
+        if (side === 'ys') land(() => handlers.current.onCopyToDigitalSelf(attribute.id))
         return
       }
 
@@ -241,11 +245,7 @@ export function Chip({
         return
       }
       if (side === 'ys' && inside(DROP.ds, cx, cy)) {
-        land(() => handlers.current.onSetSide(attribute.id, 'ds'))
-        return
-      }
-      if (side === 'ds' && inside(DROP.ys, cx, cy)) {
-        land(() => handlers.current.onSetSide(attribute.id, 'ys'))
+        land(() => handlers.current.onCopyToDigitalSelf(attribute.id))
         return
       }
       // Record the release point now so nothing is lost if the throw is
@@ -357,18 +357,24 @@ export function Chip({
       type="button"
       title={
         attribute.side === 'ys'
-          ? `${attribute.text} — drag onto your digital self to hand it over`
+          ? `${attribute.text} — drag onto your digital self to give it a copy${
+              canDiscard ? ', or into the well to let it go' : ''
+            }`
           : attribute.side === 'ds'
-            ? `${attribute.text} — drag back onto your self to take it back`
+            ? `${attribute.text} — your digital self has this${
+                canDiscard ? '; drag it into the well to take it away' : ''
+              }`
             : attribute.text
       }
       aria-label={
         attribute.side === 'ys'
-          ? `${attribute.text}. Yours. Press Enter to hand it to your digital self${
+          ? `${attribute.text}. Yours. Press Enter to give your digital self a copy${
               canDiscard ? ', or Delete to let it go' : ''
             }.`
           : attribute.side === 'ds'
-            ? `${attribute.text}. Your digital self has this. Press Enter to take it back.`
+            ? `${attribute.text}. Your digital self has this${
+                canDiscard ? '. Press Delete to take it away' : ''
+              }.`
             : `${attribute.text}. Let go.`
       }
       disabled={!interactive || attribute.side === 'gone'}
@@ -376,9 +382,9 @@ export function Chip({
       aria-hidden={attribute.side === 'gone' || undefined}
       onKeyDown={(e) => {
         if (!interactive || attribute.side === 'gone') return
-        if (e.key === 'Enter' || e.key === ' ') {
+        if ((e.key === 'Enter' || e.key === ' ') && attribute.side === 'ys') {
           e.preventDefault()
-          onSetSide(attribute.id, attribute.side === 'ys' ? 'ds' : 'ys')
+          onCopyToDigitalSelf(attribute.id)
         }
         if (canDiscard && (e.key === 'Delete' || e.key === 'Backspace')) {
           e.preventDefault()

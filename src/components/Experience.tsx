@@ -247,9 +247,9 @@ export function Experience() {
         <div
           className="abs t-timer"
           style={{ left: centerX(TIMER.w), top: TIMER.y, width: TIMER.w }}
-          aria-label="session time"
+          aria-label="time in this prompt"
         >
-          {clock(state.sessionMs)}
+          {clock(state.phase === 'playing' ? state.roundMs : 0)}
         </div>
       )}
 
@@ -349,7 +349,7 @@ export function Experience() {
           allowDiscard={state.config.allowDiscard && state.phase === 'playing'}
           interactive={state.phase === 'playing' && !state.overlay}
           onMove={game.moveAttribute}
-          onSetSide={(id, side) => game.setSide(id, side, 'participant')}
+          onCopyToDigitalSelf={(id) => game.copyToDigitalSelf(id, 'participant')}
           onDiscard={game.discard}
           onDragging={game.setDragging}
         />

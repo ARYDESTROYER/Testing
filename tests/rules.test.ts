@@ -33,6 +33,20 @@ function attr(side: Side, text = `a${++n}`): Attribute {
   }
 }
 
+/**
+ * The digital self receives a COPY: the original stays with the participant and
+ * a second row appears pointing back at it.
+ */
+function copyOf(original: Attribute): Attribute {
+  return { ...attr('ds', original.text), copyOf: original.id }
+}
+
+/** A participant's attribute plus the copy the digital self now holds. */
+function pair(): [Attribute, Attribute] {
+  const original = attr('ys')
+  return [original, copyOf(original)]
+}
+
 /* -------------------------------------------------------------------------- */
 
 describe('the attribute table', () => {
@@ -46,53 +60,75 @@ describe('the attribute table', () => {
     })
   })
 
-  test('reproduces the comp: 18 written, 5 handed over', () => {
-    const attrs = [
-      ...Array.from({ length: 13 }, () => attr('ys')),
-      ...Array.from({ length: 5 }, () => attr('ds')),
-    ]
-    assert.deepEqual(tally(attrs), {
+  test('reproduces the comp: 18 written, 5 of them copied over', () => {
+    const originals = Array.from({ length: 18 }, () => attr('ys'))
+    const copies = originals.slice(0, 5).map(copyOf)
+    assert.deepEqual(tally([...originals, ...copies]), {
       totalWritten: 18,
-      removed: 5,
-      left: 13,
+      // Nothing has been binned, so nothing has been removed. The comp's
+      // "removed 5" was drawn when handing over meant giving away; it is a copy
+      // now, so the participant still holds all 18.
+      removed: 0,
+      left: 18,
       received: 5,
       toBeGained: 13,
     })
   })
 
-  test('removed mirrors received exactly while nothing is destroyed', () => {
-    for (let handed = 0; handed <= 10; handed++) {
-      const attrs = [
-        ...Array.from({ length: 10 - handed }, () => attr('ys')),
-        ...Array.from({ length: handed }, () => attr('ds')),
-      ]
-      const t = tally(attrs)
-      assert.equal(t.removed, t.received, `handed=${handed}`)
-      assert.equal(t.left, t.toBeGained, `handed=${handed}`)
-    }
+  test('a copied attribute is still the participant\u2019s', () => {
+    const [original, copy] = pair()
+    const t = tally([original, copy])
+    assert.equal(t.totalWritten, 1, 'it was typed once')
+    assert.equal(t.left, 1, 'the original never left')
+    assert.equal(t.received, 1, 'and the digital self has it too')
+    assert.equal(t.toBeGained, 0, 'there is nothing more to give of it')
+    assert.equal(t.removed, 0)
   })
 
-  test('destroying an attribute separates removed from received', () => {
-    const attrs = [attr('ys'), attr('ys'), attr('ds'), attr('gone')]
-    const t = tally(attrs)
-    assert.equal(t.totalWritten, 4)
-    assert.equal(t.received, 1, 'only the handed-over one reached the digital self')
-    assert.equal(t.removed, 2, 'both the handed-over and the destroyed one left the self')
-    assert.equal(t.left, 2)
-    assert.equal(t.toBeGained, 2)
+  test('a copy does not count as something else the participant wrote', () => {
+    const originals = Array.from({ length: 3 }, () => attr('ys'))
+    const attrs = [...originals, ...originals.map(copyOf)]
+    assert.equal(tally(attrs).totalWritten, 3)
+  })
+
+  test('binning counts from either side', () => {
+    const [original, copy] = pair()
+    const binnedOriginal = { ...original, side: 'gone' as const }
+    assert.equal(tally([binnedOriginal, copy]).removed, 1)
+    assert.equal(tally([binnedOriginal, copy]).left, 0)
+    assert.equal(tally([binnedOriginal, copy]).received, 1)
+
+    const binnedCopy = { ...copy, side: 'gone' as const }
+    assert.equal(tally([original, binnedCopy]).removed, 1)
+    assert.equal(tally([original, binnedCopy]).received, 0)
+    assert.equal(tally([original, binnedCopy]).left, 1)
+    assert.equal(tally([original, binnedCopy]).toBeGained, 1, 'it can be given again')
+  })
+
+  test('to be gained counts only what the digital self does not already have', () => {
+    const a = attr('ys')
+    const b = attr('ys')
+    const c = attr('ys')
+    assert.equal(tally([a, b, c]).toBeGained, 3)
+    assert.equal(tally([a, b, c, copyOf(a)]).toBeGained, 2)
+    assert.equal(tally([a, b, c, copyOf(a), copyOf(b), copyOf(c)]).toBeGained, 0)
   })
 
   test('the counters always add up', () => {
     const rng = makeRng(99)
     for (let trial = 0; trial < 200; trial++) {
-      const attrs = Array.from({ length: randInt(rng, 0, 30) }, () => {
-        const r = rng()
-        return attr(r < 0.5 ? 'ys' : r < 0.85 ? 'ds' : 'gone')
-      })
-      const t = tally(attrs)
-      assert.equal(t.left + t.removed, t.totalWritten)
-      assert.ok(t.received <= t.removed)
-      assert.equal(t.toBeGained, t.left)
+      const originals = Array.from({ length: randInt(rng, 0, 20) }, () =>
+        attr(rng() < 0.85 ? 'ys' : 'gone'),
+      )
+      const copies = originals
+        .filter(() => rng() < 0.5)
+        .map((o) => (rng() < 0.8 ? copyOf(o) : { ...copyOf(o), side: 'gone' as const }))
+      const t = tally([...originals, ...copies])
+
+      assert.equal(t.totalWritten, originals.length)
+      assert.ok(t.left <= t.totalWritten, 'cannot hold more than was written')
+      assert.ok(t.toBeGained <= t.left, 'cannot give more than is held')
+      assert.ok(t.received >= 0 && t.removed >= 0)
     }
   })
 })
@@ -102,28 +138,39 @@ describe('reconstruction', () => {
     assert.equal(reconstruction([]), 0)
   })
 
-  test('reaches one only when the digital self holds everything written', () => {
-    assert.equal(reconstruction([attr('ds'), attr('ds')]), 1)
-    assert.equal(reconstruction([attr('ds'), attr('ys')]), 0.5)
+  test('reaches one when the digital self has a copy of everything written', () => {
+    const a = attr('ys')
+    const b = attr('ys')
+    assert.equal(reconstruction([a, b]), 0)
+    assert.equal(reconstruction([a, b, copyOf(a)]), 0.5)
+    assert.equal(reconstruction([a, b, copyOf(a), copyOf(b)]), 1)
   })
 
-  test('a destroyed attribute puts a full replica permanently out of reach', () => {
-    // Everything the participant still holds has been handed over, and the
-    // digital self is still not them.
-    const attrs = [attr('ds'), attr('ds'), attr('ds'), attr('gone')]
+  test('an original binned before it was copied puts a full replica out of reach', () => {
+    const a = attr('ys')
+    const b = attr('ys')
+    const c = attr('ys')
+    const attrs = [{ ...a, side: 'gone' as const }, b, c, copyOf(b), copyOf(c)]
     assert.equal(tally(attrs).toBeGained, 0, 'nothing left to give')
     assert.ok(reconstruction(attrs) < 1, 'yet the twin is not complete')
-    assert.equal(reconstruction(attrs), 0.75)
+    assert.equal(Number(reconstruction(attrs).toFixed(4)), 0.6667)
+  })
+
+  test('taking a copy back out of the bin\u2019s reach lowers it again', () => {
+    const a = attr('ys')
+    const withCopy = [a, copyOf(a)]
+    assert.equal(reconstruction(withCopy), 1)
+    assert.equal(reconstruction([a, { ...withCopy[1], side: 'gone' as const }]), 0)
   })
 
   test('never leaves 0..1', () => {
     const rng = makeRng(7)
     for (let trial = 0; trial < 300; trial++) {
-      const attrs = Array.from({ length: randInt(rng, 1, 40) }, () => {
-        const r = rng()
-        return attr(r < 0.4 ? 'ys' : r < 0.8 ? 'ds' : 'gone')
-      })
-      const v = reconstruction(attrs)
+      const originals = Array.from({ length: randInt(rng, 1, 20) }, () =>
+        attr(rng() < 0.8 ? 'ys' : 'gone'),
+      )
+      const copies = originals.filter(() => rng() < 0.7).map(copyOf)
+      const v = reconstruction([...originals, ...copies])
       assert.ok(v >= 0 && v <= 1, `got ${v}`)
     }
   })
@@ -245,16 +292,32 @@ describe('what the system takes each round', () => {
     }
   })
 
-  test('only ever takes attributes the participant still holds', () => {
+  test('only ever names attributes the participant still holds', () => {
     const held = [attr('ys'), attr('ys'), attr('ys'), attr('ys')]
-    const attrs = [...held, attr('ds'), attr('ds'), attr('gone')]
+    const attrs = [...held, attr('ds'), attr('gone')]
     const heldIds = new Set(held.map((a) => a.id))
     const rng = makeRng(17)
     for (let i = 0; i < 200; i++) {
       for (const id of pickSystemTransfer(rng, attrs, config)) {
-        assert.ok(heldIds.has(id), `took ${id}, which is not the participant's`)
+        assert.ok(heldIds.has(id), `named ${id}, which is not the participant\u2019s`)
       }
     }
+  })
+
+  test('skips anything the digital self already has a copy of', () => {
+    const already = attr('ys')
+    const fresh = attr('ys')
+    const attrs = [already, fresh, copyOf(already)]
+    const rng = makeRng(23)
+    for (let i = 0; i < 200; i++) {
+      assert.deepEqual(pickSystemTransfer(rng, attrs, config), [fresh.id])
+    }
+  })
+
+  test('stops once the digital self has everything', () => {
+    const originals = Array.from({ length: 5 }, () => attr('ys'))
+    const attrs = [...originals, ...originals.map(copyOf)]
+    assert.deepEqual(pickSystemTransfer(makeRng(29), attrs, config), [])
   })
 
   test('never returns the same attribute twice in one round', () => {
