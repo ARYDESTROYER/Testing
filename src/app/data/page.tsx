@@ -45,6 +45,7 @@ export default async function DataPage({
   const exportSuffix = required ? `&key=${encodeURIComponent(key)}` : ''
 
   const totalAttributes = sessions.reduce((n, s) => n + s.attributeCount, 0)
+  const totalDiscarded = sessions.reduce((n, s) => n + s.discardedCount, 0)
   const completed = sessions.filter((s) => s.endedAt).length
 
   return (
@@ -55,6 +56,7 @@ export default async function DataPage({
           <p className="muted">
             {sessions.length} participant{sessions.length === 1 ? '' : 's'} · {completed} completed ·{' '}
             {totalAttributes} attributes written
+            {totalDiscarded > 0 ? `, ${totalDiscarded} let go` : ''}
           </p>
         </div>
         <nav>
@@ -83,6 +85,7 @@ export default async function DataPage({
               <th>started</th>
               <th className="num">written</th>
               <th className="num">transferred</th>
+              <th className="num">let go</th>
               <th className="num">kept</th>
               <th>duration</th>
               <th>ended</th>
@@ -97,7 +100,8 @@ export default async function DataPage({
                 <td className="muted">{when(s.createdAt)}</td>
                 <td className="num">{s.attributeCount}</td>
                 <td className="num">{s.receivedCount}</td>
-                <td className="num">{s.attributeCount - s.receivedCount}</td>
+                <td className="num">{s.discardedCount || ''}</td>
+                <td className="num">{s.keptCount}</td>
                 <td className="muted">{duration(s.durationMs)}</td>
                 <td>
                   {s.endReason ? (

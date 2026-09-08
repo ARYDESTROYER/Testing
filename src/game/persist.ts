@@ -79,18 +79,23 @@ export class SessionWriter {
 
     this.inFlight = true
     try {
-      await fetch(`/api/session/${encodeURIComponent(this.sessionId)}/sync`, {
+      // No `keepalive` here: it caps the body at 64 KiB, which a busy canvas can
+      // exceed. Unload is covered by sendBeacon instead.
+      const res = await fetch(`/api/session/${encodeURIComponent(this.sessionId)}/sync`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
-        keepalive: true,
       })
-    } catch {
+      // fetch only rejects on a network failure, so a 500 would otherwise look
+      // like a successful write and the batch would be thrown away.
+      if (!res.ok) throw new Error(`sync responded ${res.status}`)
+    } catch (err) {
       // Put the work back so the next tick retries it; a dropped request must
       // never silently lose a participant's answers.
       for (const a of payload.attributes) this.pending.attributes.set(a.id, a)
       this.pending.events.unshift(...payload.events)
       this.schedule()
+      if (process.env.NODE_ENV !== 'production') console.warn('[sync] retrying', err)
     } finally {
       this.inFlight = false
     }

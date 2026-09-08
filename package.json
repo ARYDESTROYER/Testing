@@ -2,7 +2,7 @@
   "name": "construct-your-digital-twin",
   "version": "1.0.0",
   "private": true,
-  "description": "Construct your digital twin — a mediated research instrument on self / digital-self attribute transfer.",
+  "description": "Construct your digital twin \u2014 a mediated research instrument on self / digital-self attribute transfer.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "screenshots": "node scripts/shoot.mjs screenshots",
-    "check:viewports": "node scripts/check-viewports.mjs"
+    "check:viewports": "node scripts/check-viewports.mjs",
+    "check:persistence": "node scripts/check-persistence.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

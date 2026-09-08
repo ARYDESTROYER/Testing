@@ -275,9 +275,11 @@ export function Chip({
           ? `${attribute.text} — drag onto your digital self to hand it over`
           : `${attribute.text} — drag back onto your self to take it back`
       }
-      disabled={!interactive}
+      disabled={!interactive || attribute.side === 'gone'}
+      tabIndex={attribute.side === 'gone' ? -1 : 0}
+      aria-hidden={attribute.side === 'gone' || undefined}
       onKeyDown={(e) => {
-        if (!interactive) return
+        if (!interactive || attribute.side === 'gone') return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onSetSide(attribute.id, attribute.side === 'ys' ? 'ds' : 'ys')

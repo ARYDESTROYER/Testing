@@ -217,14 +217,23 @@ function rowToSession(row: Record<string, unknown>): Omit<SessionRecord, 'attrib
   }
 }
 
-export async function listSessions(): Promise<
-  (Omit<SessionRecord, 'attributes' | 'events'> & { attributeCount: number; receivedCount: number })[]
-> {
+export interface SessionSummary extends Omit<SessionRecord, 'attributes' | 'events'> {
+  attributeCount: number
+  receivedCount: number
+  /** Still on the participant's own side. Counted, not inferred by subtraction:
+   *  an attribute they let go of is neither received nor kept. */
+  keptCount: number
+  discardedCount: number
+}
+
+export async function listSessions(): Promise<SessionSummary[]> {
   const conn = await db()
   const res = await conn.execute(`
     SELECT s.*,
            (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id) AS attribute_count,
-           (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'ds') AS received_count
+           (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'ds') AS received_count,
+           (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'ys') AS kept_count,
+           (SELECT COUNT(*) FROM attributes a WHERE a.session_id = s.id AND a.side = 'gone') AS discarded_count
     FROM sessions s
     ORDER BY s.created_at DESC
   `)
@@ -232,6 +241,8 @@ export async function listSessions(): Promise<
     ...rowToSession(r as unknown as Record<string, unknown>),
     attributeCount: Number(r.attribute_count ?? 0),
     receivedCount: Number(r.received_count ?? 0),
+    keptCount: Number(r.kept_count ?? 0),
+    discardedCount: Number(r.discarded_count ?? 0),
   }))
 }
 

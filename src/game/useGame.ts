@@ -222,6 +222,9 @@ export function useGame(): GameApi {
       const s = ref.current
       const current = s.attributes.find((a) => a.id === id)
       if (!current || current.side === side) return
+      // Letting go is final. Without this a discarded chip could be brought back
+      // from the keyboard, mid-dissolve and no longer draggable.
+      if (current.side === 'gone') return
 
       const boxes = s.attributes
         .filter((a) => a.side === side && a.id !== id)
