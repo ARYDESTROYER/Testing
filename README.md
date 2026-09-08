@@ -160,6 +160,36 @@ code path; only the URL scheme changes.
 
 ---
 
+## Deploying it
+
+The build runs on any Node host. On a serverless one — Vercel, Lambda — there is
+one thing that is not optional:
+
+**Set `TWIN_DATABASE_URL` and `TWIN_DATABASE_AUTH_TOKEN`.** Without them the app
+falls back to the host's scratch space, and scratch space is per-instance. A
+single participant's session is spread across several instances, so writes that
+land on the second one are rejected as belonging to a session it has never heard
+of, and the dashboard reads a fourth instance that has nothing at all. The
+symptom in the log is a run of `POST /api/session/…/sync 404` a few seconds into
+a session that started fine. The dashboard says **demo mode** in a yellow banner
+for exactly as long as this is the case.
+
+The fallback is there so the canvas can still be clicked through for a
+walkthrough. It cannot record a participant.
+
+**Set `TWIN_DASHBOARD_PASSWORD` too,** unless the deployment is genuinely meant
+to be public. Without it `/data` serves every participant's answers, and the CSV
+and JSON exports, to anyone with the URL.
+
+On Vercel specifically: environment variables are per-environment, so a variable
+added to Production only will be missing from preview builds; and a new project
+starts with Vercel Authentication on, which limits the URL to the team until it
+is turned off under Settings → Deployment Protection. Variables are read at
+request time, but a deployment has to be rebuilt after they are added for the
+running instances to pick them up.
+
+---
+
 ## How the canvas is built
 
 The Figma artboard is 4481 × 2739. Every element is positioned in those units
