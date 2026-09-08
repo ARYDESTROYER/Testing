@@ -128,6 +128,10 @@ two exports:
 
 A single session is at `/api/export?session=<id>`.
 
+An answer that a spreadsheet would evaluate as a formula — one starting with
+`=` or `@` — gets a leading apostrophe in the CSV so opening the export cannot
+run it. The JSON export keeps every answer exactly as it was typed.
+
 Set `TWIN_DASHBOARD_PASSWORD` to put the dashboard behind `?key=…`. It is open by
 default, which is right for a laptop in a room and wrong for the public internet.
 
@@ -164,8 +168,10 @@ src/
   game/         layout constants, the rules engine, the session hook, persistence
   lib/          prompts, config, types, the database
 scripts/
-  build_assets.py   turns the raw Figma export into public/assets
-  shoot.mjs         drives a whole session in a browser and screenshots it
+  build_assets.py       turns the raw Figma export into public/assets
+  shoot.mjs             drives a whole session in a browser and screenshots it
+  check-viewports.mjs   runs the canvas at six display sizes
+tests/                  the rules and the export path
 ```
 
 ### Regenerating the character assets
@@ -180,6 +186,20 @@ keeps a pale halo):
 pip install Pillow
 python3 scripts/build_assets.py "path/to/export-everything (7)/7"
 ```
+
+### Tests
+
+```bash
+npm test
+```
+
+Covers the rules the study depends on: what the attribute table counts, how
+reconstruction is measured, that the round plan draws prompts from the right
+dimension and is reproducible from its seed, that the system never takes more
+attributes than a participant holds or takes one twice, that chips land inside
+their zone and clear of the figures and the table, how a participant code is
+built from a name, and that the CSV survives an answer containing a comma, a
+quote, a newline, or a formula.
 
 ### Screenshots and layout checks
 

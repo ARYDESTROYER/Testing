@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import type { Attribute, EndReason, GameEvent, SessionRecord } from './types'
 import { DEFAULT_CONFIG, type GameConfig } from './config'
+import { participantCode } from './participants'
 
 /**
  * One code path for local and hosted runs. libsql speaks both a plain file on
@@ -89,25 +90,6 @@ async function db(): Promise<Client> {
   return getClient()
 }
 
-/** Initials from a display name: "Ruchira Sharma" -> "RS", "vidhi" -> "V". */
-export function initialsOf(name: string): string {
-  const parts = name
-    .trim()
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-  const letters = parts
-    .map((p) => [...p].find((ch) => /\p{L}/u.test(ch)) ?? '')
-    .filter(Boolean)
-    .slice(0, 3)
-    .join('')
-  return (letters || 'P').toUpperCase()
-}
-
-/**
- * Participant codes look like the comp's "#V01": initials plus a monotonic
- * participant number. No login, per the study design — this is only ever used
- * to tie a canvas back to the person who sat in front of it.
- */
 async function nextParticipantNumber(): Promise<number> {
   const conn = await db()
   const tx = await conn.transaction('write')
@@ -136,7 +118,7 @@ export async function createSession(
 ): Promise<{ id: string; code: string }> {
   const conn = await db()
   const n = await nextParticipantNumber()
-  const code = `${initialsOf(name)}${String(n).padStart(2, '0')}`
+  const code = participantCode(name, n)
   const id = `${code}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 
   await conn.execute({

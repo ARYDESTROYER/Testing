@@ -1,24 +1,10 @@
 import { NextResponse } from 'next/server'
 import { allAttributeRows, getSession, listSessions } from '@/lib/db'
 import { authorized } from '@/lib/auth'
+import { toCsv } from '@/lib/csv'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-function csvCell(value: unknown): string {
-  if (value == null) return ''
-  const s = String(value)
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-}
-
-function toCsv(rows: Record<string, unknown>[]): string {
-  if (!rows.length) return ''
-  const headers = Object.keys(rows[0])
-  const lines = [headers.join(',')]
-  for (const row of rows) lines.push(headers.map((h) => csvCell(row[h])).join(','))
-  // A BOM so Excel opens the participants' answers as UTF-8.
-  return `﻿${lines.join('\r\n')}\r\n`
-}
 
 /**
  * GET /api/export?format=csv           every attribute of every session

@@ -69,13 +69,22 @@ export const COLORS = {
  */
 export function configFromSearch(search: string): GameConfig {
   const q = new URLSearchParams(search)
+  // A parameter left blank (`?rounds=`) means "not set", not zero — otherwise a
+  // half-typed URL silently runs a one-round session.
+  const raw = (key: string): string | null => {
+    const v = q.get(key)
+    return v == null || v.trim() === '' ? null : v.trim()
+  }
   const num = (key: string, fallback: number, min: number, max: number) => {
-    if (!q.has(key)) return fallback
-    const n = Number(q.get(key))
+    const v = raw(key)
+    if (v == null) return fallback
+    const n = Number(v)
     return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback
   }
-  const bool = (key: string, fallback: boolean) =>
-    q.has(key) ? !['0', 'false', 'no'].includes((q.get(key) ?? '').toLowerCase()) : fallback
+  const bool = (key: string, fallback: boolean) => {
+    const v = raw(key)
+    return v == null ? fallback : !['0', 'false', 'no', 'off'].includes(v.toLowerCase())
+  }
 
   const lo = num('min', DEFAULT_CONFIG.transferPerRoundMin, 0, 40)
   const hi = num('max', DEFAULT_CONFIG.transferPerRoundMax, 0, 40)
