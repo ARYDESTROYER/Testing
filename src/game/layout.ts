@@ -69,12 +69,21 @@ export const ZONE = {
 /**
  * Chips gather around the figure they belong to rather than filling their zone
  * evenly, which is how the comp reads. Placement scores candidates by distance
- * from this point and only spreads outward as the space nearest it fills up.
+ * from a cluster centre, and the centres themselves lean toward the figure.
  */
 export const ZONE_ANCHOR = {
   ys: { x: 1360, y: 1300 },
   ds: { x: 3110, y: 1300 },
 } as const
+
+/**
+ * Answers to one prompt land near each other, and so does each batch the digital
+ * self receives. Cluster centres are laid out on this lattice inside the zone —
+ * columns nearest the figure first, so the canvas fills outward — and a chip is
+ * then placed within CLUSTER_SPREAD of its own centre.
+ */
+export const CLUSTER_GRID = { cols: 2, rows: 4 }
+export const CLUSTER_SPREAD = 190
 
 export const CHIP_H = 95
 export const CHIP_MAX_W = 980

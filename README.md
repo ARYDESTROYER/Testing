@@ -46,12 +46,13 @@ For a real run: `npm run build && npm start`.
    sequence. The participant types a word or a whole phrase; each one lands on
    the canvas as a chip beside their self.
 4. **The system copies some over.** At the end of each round the system gives the
-   digital self a random 3 to 5 of the participant's attributes and says which.
-   They are **copied, not moved**: the original stays on the participant's side
-   and a second chip appears on the right, so the attribute is now held at both
-   ends. The count is drawn per round rather than fixed per participant: people
-   write two attributes in thirty seconds or they write ten, and a fixed quota
-   would not survive that.
+   digital self some of the participant's attributes and says which. They are
+   **copied, not moved**: the original stays on the participant's side and a
+   second chip appears on the right, so the attribute is now held at both ends.
+   How many is left entirely to chance — anything from none of them to all of
+   them, drawn fresh each round, so a participant cannot learn the rhythm. A
+   fixed range is available instead (`random=0`) for a run that wants a steadier
+   hand.
 5. **The participant decides what to keep.** Chips stay draggable, throwable and
    clickable for the whole session. Dropping one on the digital self gives it a
    copy; dropping any chip into the "let go" well bins it — **from either side**,
@@ -100,7 +101,8 @@ cards appear.
 | ---------- | ------- | ------------------------------------------------ |
 | `seconds`  | 30      | seconds per prompt round                         |
 | `rounds`   | 8       | number of prompt rounds                          |
-| `min`/`max`| 3 / 5   | attributes the system takes each time            |
+| `random`   | on      | take a random amount each round, none to all     |
+| `min`/`max`| 3 / 5   | the fixed range instead, when `random=0`          |
 | `every`    | 1       | take every N rounds                              |
 | `shuffle`  | on      | randomise the order of the dimensions            |
 | `coach`    | on      | show the two instruction cards                   |

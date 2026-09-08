@@ -13,6 +13,7 @@ import {
   pickSystemTransfer,
   reconstruction,
   attributeId,
+  clusterCentre,
 } from '@/game/engine'
 import { CHIP_H, CHIP_MAX_W, ZONE, ZONE_ANCHOR, DROP, TABLE } from '@/game/layout'
 
@@ -265,8 +266,13 @@ describe('the round plan', () => {
   })
 })
 
-describe('what the system takes each round', () => {
-  const config = { ...DEFAULT_CONFIG, transferPerRoundMin: 3, transferPerRoundMax: 5 }
+describe('what the system takes each round, with a fixed range', () => {
+  const config = {
+    ...DEFAULT_CONFIG,
+    fullyRandomTransfer: false,
+    transferPerRoundMin: 3,
+    transferPerRoundMax: 5,
+  }
 
   test('takes nothing when the participant holds nothing', () => {
     assert.deepEqual(pickSystemTransfer(makeRng(1), [], config), [])
@@ -398,7 +404,7 @@ describe('chip placement', () => {
       w: 1200,
       h: 1600,
     }))
-    const { x, y } = placeChip(makeRng(37), 'ys', 300, crowd, 20)
+    const { x, y } = placeChip(makeRng(37), 'ys', 300, crowd, { attempts: 20 })
     assert.ok(Number.isFinite(x) && Number.isFinite(y))
     assert.ok(x >= ZONE.ys.x0 && y >= ZONE.ys.y0)
   })
@@ -539,7 +545,12 @@ describe('the shared config clamp', () => {
 
 describe('a configured minimum of zero', () => {
   test('lets a round legitimately take nothing', () => {
-    const config = { ...DEFAULT_CONFIG, transferPerRoundMin: 0, transferPerRoundMax: 0 }
+    const config = {
+      ...DEFAULT_CONFIG,
+      fullyRandomTransfer: false,
+      transferPerRoundMin: 0,
+      transferPerRoundMax: 0,
+    }
     const attrs = Array.from({ length: 10 }, () => attr('ys'))
     for (let seed = 1; seed <= 20; seed++) {
       assert.deepEqual(pickSystemTransfer(makeRng(seed), attrs, config), [])
@@ -547,7 +558,12 @@ describe('a configured minimum of zero', () => {
   })
 
   test('still takes something when the range allows it', () => {
-    const config = { ...DEFAULT_CONFIG, transferPerRoundMin: 0, transferPerRoundMax: 3 }
+    const config = {
+      ...DEFAULT_CONFIG,
+      fullyRandomTransfer: false,
+      transferPerRoundMin: 0,
+      transferPerRoundMax: 3,
+    }
     const attrs = Array.from({ length: 10 }, () => attr('ys'))
     const counts = new Set<number>()
     const rng = makeRng(5)
@@ -569,5 +585,138 @@ describe('attribute ids', () => {
     // per-tab counter alone would let one participant overwrite another's row.
     const id = attributeId()
     assert.match(id, /-[a-z0-9]{6,}$/i, id)
+  })
+})
+
+describe('chips that belong together land together', () => {
+  const boxesFor = (placed: { x: number; y: number }[], w = 300) =>
+    placed.map((p) => ({ ...p, w, h: CHIP_H }))
+
+  const placeGroup = (side: 'ys' | 'ds', group: number, count: number, seed = 5) => {
+    const rng = makeRng(seed)
+    const placed: { x: number; y: number }[] = []
+    for (let i = 0; i < count; i++) {
+      placed.push(placeChip(rng, side, 300, boxesFor(placed), { group }))
+    }
+    return placed
+  }
+
+  const spread = (placed: { x: number; y: number }[]) => {
+    let worst = 0
+    for (const a of placed) {
+      for (const b of placed) worst = Math.max(worst, Math.hypot(a.x - b.x, a.y - b.y))
+    }
+    return worst
+  }
+
+  test('answers to one prompt sit near each other', () => {
+    for (const side of ['ys', 'ds'] as const) {
+      const placed = placeGroup(side, 0, 5)
+      assert.ok(
+        spread(placed) < 900,
+        `${side}: five answers to one prompt spread ${Math.round(spread(placed))} units apart`,
+      )
+    }
+  })
+
+  test('a batch the digital self receives arrives together', () => {
+    const placed = placeGroup('ds', 2, 6)
+    assert.ok(spread(placed) < 900, `spread ${Math.round(spread(placed))}`)
+  })
+
+  test('different prompts land in different places', () => {
+    const centres = Array.from({ length: 8 }, (_, g) => clusterCentre('ys', g))
+    for (let i = 0; i < centres.length; i++) {
+      for (let j = i + 1; j < centres.length; j++) {
+        const d = Math.hypot(centres[i].x - centres[j].x, centres[i].y - centres[j].y)
+        assert.ok(d > 200, `groups ${i} and ${j} are only ${Math.round(d)} units apart`)
+      }
+    }
+  })
+
+  test('a group past the end of the lattice does not sit on an earlier one', () => {
+    const seen = Array.from({ length: 24 }, (_, g) => clusterCentre('ys', g))
+    for (let i = 0; i < seen.length; i++) {
+      for (let j = i + 1; j < seen.length; j++) {
+        const d = Math.hypot(seen[i].x - seen[j].x, seen[i].y - seen[j].y)
+        assert.ok(d > 40, `groups ${i} and ${j} coincide`)
+      }
+    }
+  })
+
+  test('every cluster centre is inside its own zone', () => {
+    for (const side of ['ys', 'ds'] as const) {
+      for (let g = 0; g < 30; g++) {
+        const c = clusterCentre(side, g)
+        assert.ok(c.x >= ZONE[side].x0 && c.x <= ZONE[side].x1, `${side} group ${g} x`)
+        assert.ok(c.y >= ZONE[side].y0 && c.y <= ZONE[side].y1, `${side} group ${g} y`)
+      }
+    }
+  })
+
+  test('a grouped chip still lands inside the zone', () => {
+    const rng = makeRng(3)
+    for (const side of ['ys', 'ds'] as const) {
+      for (let g = 0; g < 12; g++) {
+        for (let i = 0; i < 20; i++) {
+          const { x, y } = placeChip(rng, side, 900, [], { group: g })
+          assert.ok(x >= ZONE[side].x0 - 0.001 && y >= ZONE[side].y0 - 0.001)
+          assert.ok(y + CHIP_H <= ZONE[side].y1 + 0.001)
+          assert.ok(x + 900 <= ZONE[side].x1 + 0.001)
+        }
+      }
+    }
+  })
+})
+
+describe('how much the digital self takes', () => {
+  const attrs = (n: number) => Array.from({ length: n }, () => attr('ys'))
+
+  test('is fully random by default: sometimes none, sometimes all', () => {
+    const config = { ...DEFAULT_CONFIG }
+    assert.equal(config.fullyRandomTransfer, true)
+    const held = attrs(8)
+    const counts = new Set<number>()
+    const rng = makeRng(11)
+    for (let i = 0; i < 600; i++) counts.add(pickSystemTransfer(rng, held, config).length)
+    assert.ok(counts.has(0), 'never took none')
+    assert.ok(counts.has(8), 'never took all of them')
+    assert.ok(counts.size >= 7, `only saw ${counts.size} different amounts`)
+    assert.ok(Math.max(...counts) <= 8, 'took more than the participant holds')
+  })
+
+  test('spans the whole range rather than hugging the middle', () => {
+    const held = attrs(10)
+    const rng = makeRng(13)
+    const seen = new Set<number>()
+    for (let i = 0; i < 800; i++) seen.add(pickSystemTransfer(rng, held, DEFAULT_CONFIG).length)
+    for (let n = 0; n <= 10; n++) assert.ok(seen.has(n), `never took exactly ${n}`)
+  })
+
+  test('honours the fixed range when the facilitator turns randomness off', () => {
+    const config = {
+      ...DEFAULT_CONFIG,
+      fullyRandomTransfer: false,
+      transferPerRoundMin: 3,
+      transferPerRoundMax: 5,
+    }
+    const held = attrs(20)
+    const rng = makeRng(17)
+    for (let i = 0; i < 300; i++) {
+      const n = pickSystemTransfer(rng, held, config).length
+      assert.ok(n >= 3 && n <= 5, `took ${n}`)
+    }
+  })
+
+  test('never takes what the digital self already has, however random', () => {
+    const a = attr('ys')
+    const b = attr('ys')
+    const attrsWithCopy = [a, b, copyOf(a)]
+    const rng = makeRng(19)
+    for (let i = 0; i < 300; i++) {
+      for (const id of pickSystemTransfer(rng, attrsWithCopy, DEFAULT_CONFIG)) {
+        assert.equal(id, b.id)
+      }
+    }
   })
 })

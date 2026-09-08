@@ -10,9 +10,14 @@ export interface GameConfig {
   /** How many rounds a full session lasts. One dimension per round. */
   rounds: number
   /**
-   * The system transfers a random count of attributes to the digital self at
-   * the end of each round. Bounds are inclusive; the actual draw is clamped to
-   * however many attributes the participant still holds.
+   * Leave how many attributes the digital self takes each round entirely to
+   * chance: anything from none of them to all of them. On by default, so a
+   * participant cannot learn the rhythm.
+   */
+  fullyRandomTransfer: boolean
+  /**
+   * Used instead when the draw is not fully random. Bounds are inclusive and the
+   * draw is clamped to however many attributes the participant still holds.
    */
   transferPerRoundMin: number
   transferPerRoundMax: number
@@ -33,6 +38,7 @@ export interface GameConfig {
 export const DEFAULT_CONFIG: GameConfig = {
   roundSeconds: 30,
   rounds: 8,
+  fullyRandomTransfer: true,
   transferPerRoundMin: 3,
   transferPerRoundMax: 5,
   transferEveryNRounds: 1,
@@ -81,6 +87,7 @@ export function sanitizeConfig(input: unknown): GameConfig {
   return {
     roundSeconds: num(c.roundSeconds, DEFAULT_CONFIG.roundSeconds, 5, 600),
     rounds,
+    fullyRandomTransfer: c.fullyRandomTransfer ?? DEFAULT_CONFIG.fullyRandomTransfer,
     transferPerRoundMin: Math.min(lo, hi),
     transferPerRoundMax: Math.max(lo, hi),
     // Taking every N rounds is meaningless past the number of rounds there are.
@@ -121,6 +128,7 @@ export function configFromSearch(search: string): GameConfig {
     transferPerRoundMin: num('min', DEFAULT_CONFIG.transferPerRoundMin, 0, 40),
     transferPerRoundMax: num('max', DEFAULT_CONFIG.transferPerRoundMax, 0, 40),
     transferEveryNRounds: num('every', DEFAULT_CONFIG.transferEveryNRounds, 1, 40),
+    fullyRandomTransfer: bool('random', DEFAULT_CONFIG.fullyRandomTransfer),
     shuffleDimensions: bool('shuffle', DEFAULT_CONFIG.shuffleDimensions),
     showCoachOverlays: bool('coach', DEFAULT_CONFIG.showCoachOverlays),
     allowDiscard: bool('discard', DEFAULT_CONFIG.allowDiscard),

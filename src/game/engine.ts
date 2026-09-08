@@ -1,7 +1,7 @@
 import type { Attribute, DropSide, GameEvent } from '@/lib/types'
 import { DIMENSIONS, type Dimension } from '@/lib/prompts'
 import type { GameConfig } from '@/lib/config'
-import { CHIP_H, ZONE, ZONE_ANCHOR } from './layout'
+import { CHIP_H, CLUSTER_GRID, CLUSTER_SPREAD, ZONE, ZONE_ANCHOR } from './layout'
 
 /* -----------------------------------------------------------------------------
    Deterministic randomness
@@ -76,6 +76,57 @@ interface Placed {
   h: number
 }
 
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v
+}
+
+/** Fractions of a lattice cell, one per wrap around it. */
+const WRAP_OFFSETS: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.32, 0.3],
+  [-0.3, 0.34],
+  [0.28, -0.32],
+  [-0.34, -0.28],
+]
+
+/**
+ * Where one group of chips gathers.
+ *
+ * Answers to the same prompt share a group, and so does each batch the digital
+ * self receives, so they read as belonging together. Centres walk a lattice
+ * inside the zone starting from the column nearest the figure, and wrap once the
+ * lattice is used up — with a shrinking offset, so a later wrap sits between the
+ * earlier centres rather than on top of them.
+ */
+export function clusterCentre(side: DropSide, group: number): { x: number; y: number } {
+  const zone = ZONE[side]
+  const { cols, rows } = CLUSTER_GRID
+  const cells = cols * rows
+  const g = Math.max(0, Math.floor(group))
+  const wrap = Math.floor(g / cells)
+  const cell = g % cells
+  // Once the lattice is used up, later groups sit in the gaps between the
+  // earlier centres rather than on top of them.
+  const [offX, offY] = WRAP_OFFSETS[wrap % WRAP_OFFSETS.length]
+
+  // Column 0 is the one beside the figure: the participant's zone counts in from
+  // its right edge, the digital self's from its left.
+  const col = cell % cols
+  const row = Math.floor(cell / cols)
+
+  const stepX = (zone.x1 - zone.x0) / cols
+  const stepY = (zone.y1 - zone.y0) / rows
+
+  const fromFigure = (col + 0.5 + offX) * stepX
+  const x = side === 'ys' ? zone.x1 - fromFigure : zone.x0 + fromFigure
+  const y = zone.y0 + (row + 0.5 + offY) * stepY
+
+  return {
+    x: clamp(x, zone.x0 + 60, zone.x1 - 60),
+    y: clamp(y, zone.y0 + 60, zone.y1 - 60),
+  }
+}
+
 /**
  * Scatter a chip into its side's zone.
  *
@@ -91,10 +142,11 @@ export function placeChip(
   side: DropSide,
   width: number,
   existing: readonly Placed[],
-  attempts = 120,
+  options: { group?: number; attempts?: number } = {},
 ): { x: number; y: number } {
+  const { group, attempts = 160 } = options
   const zone = ZONE[side]
-  const anchor = ZONE_ANCHOR[side]
+  const centre = group == null ? ZONE_ANCHOR[side] : clusterCentre(side, group)
   const w = Math.min(width, zone.x1 - zone.x0)
   const maxX = Math.max(zone.x0, zone.x1 - w)
   const maxY = Math.max(zone.y0, zone.y1 - CHIP_H)
@@ -106,8 +158,20 @@ export function placeChip(
   let leastOverlap = Infinity
 
   for (let i = 0; i < attempts; i++) {
-    const x = zone.x0 + rng() * (maxX - zone.x0)
-    const y = zone.y0 + rng() * (maxY - zone.y0)
+    // Sample around the group's centre, widening as attempts fail so a full
+    // cluster spills outward instead of never placing.
+    let x: number
+    let y: number
+    if (group == null) {
+      x = zone.x0 + rng() * (maxX - zone.x0)
+      y = zone.y0 + rng() * (maxY - zone.y0)
+    } else {
+      const reach = CLUSTER_SPREAD * (1 + (2.5 * i) / attempts)
+      const angle = rng() * Math.PI * 2
+      const radius = Math.sqrt(rng()) * reach
+      x = clamp(centre.x + Math.cos(angle) * radius - w / 2, zone.x0, maxX)
+      y = clamp(centre.y + Math.sin(angle) * radius - CHIP_H / 2, zone.y0, maxY)
+    }
 
     let overlap = 0
     for (const e of existing) {
@@ -117,8 +181,8 @@ export function placeChip(
     }
 
     if (overlap === 0) {
-      const dx = x + w / 2 - anchor.x
-      const dy = y + CHIP_H / 2 - anchor.y
+      const dx = x + w / 2 - centre.x
+      const dy = y + CHIP_H / 2 - centre.y
       const distance = dx * dx + dy * dy
       if (distance < freeDistance) {
         freeDistance = distance
@@ -155,12 +219,13 @@ export function pickSystemTransfer(
   const held = attributes.filter((a) => a.side === 'ys' && !copied.has(a.id))
   if (!held.length) return []
 
-  // Exactly what was drawn, clamped to what the participant actually holds. A
-  // configured minimum of 0 means some rounds legitimately take nothing.
-  const want = Math.min(
-    randInt(rng, config.transferPerRoundMin, config.transferPerRoundMax),
-    held.length,
-  )
+  // How many the digital self takes. Left to chance by default: anything from
+  // none of them to all of them, drawn fresh each round, so a participant cannot
+  // learn the rhythm. The range is there for a run that wants a steadier hand.
+  const want = config.fullyRandomTransfer
+    ? randInt(rng, 0, held.length)
+    : Math.min(randInt(rng, config.transferPerRoundMin, config.transferPerRoundMax), held.length)
+
   if (want <= 0) return []
   return shuffle(rng, held)
     .slice(0, want)

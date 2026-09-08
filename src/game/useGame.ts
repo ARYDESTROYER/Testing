@@ -106,6 +106,8 @@ export function useGame(): GameApi {
   /** begin() runs once per page: a second one would mint a second participant. */
   const beganRef = useRef(false)
   const draggingIdRef = useRef<string | null>(null)
+  /** Which batch the digital self is currently receiving; each lands together. */
+  const batchRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const lastTsRef = useRef<number | null>(null)
   /** performance.now() at START. The session clock is measured against it. */
@@ -182,7 +184,10 @@ export function useGame(): GameApi {
       const boxes = s.attributes
         .filter((a) => a.side === 'ys')
         .map((a) => ({ x: a.x, y: a.y, w: chipWidth(a.text), h: CHIP_H }))
-      const { x, y } = placeChip(rngRef.current, 'ys', chipWidth(text), boxes)
+      // Grouped by round, so several answers to one prompt land together.
+      const { x, y } = placeChip(rngRef.current, 'ys', chipWidth(text), boxes, {
+        group: s.roundIndex,
+      })
 
       const attribute: Attribute = {
         id: attributeId(),
@@ -246,7 +251,9 @@ export function useGame(): GameApi {
       const boxes = s.attributes
         .filter((a) => a.side === 'ds')
         .map((a) => ({ x: a.x, y: a.y, w: chipWidth(a.text), h: CHIP_H }))
-      const { x, y } = placeChip(rngRef.current, 'ds', chipWidth(source.text), boxes)
+      const { x, y } = placeChip(rngRef.current, 'ds', chipWidth(source.text), boxes, {
+        group: batchRef.current,
+      })
 
       const copy: Attribute = {
         ...source,
@@ -402,9 +409,12 @@ export function useGame(): GameApi {
           .filter((a) => a.side === 'ds')
           .map((a) => ({ x: a.x, y: a.y, w: chipWidth(a.text), h: CHIP_H }))
 
+        // Everything taken this round shares a group, so the batch arrives as a
+        // batch rather than sprayed across the digital self's side.
+        const batch = batchRef.current
         for (const source of attributes) {
           if (!taken.has(source.id)) continue
-          const { x, y } = placeChip(rng, 'ds', chipWidth(source.text), occupied)
+          const { x, y } = placeChip(rng, 'ds', chipWidth(source.text), occupied, { group: batch })
           occupied.push({ x, y, w: chipWidth(source.text), h: CHIP_H })
           copies.push({
             ...source,
@@ -420,6 +430,8 @@ export function useGame(): GameApi {
 
         // The originals are untouched: the digital self receives a copy.
         attributes = [...attributes, ...copies]
+
+        batchRef.current += 1
 
         writerRef.current?.attributes(copies)
         writerRef.current?.event(

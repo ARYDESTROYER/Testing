@@ -86,7 +86,18 @@ export function Settings({
           </div>
 
           <div className="settings-row">
-            <label htmlFor="tmin">attributes taken per round</label>
+            <label htmlFor="random">take a random amount each round</label>
+            <input
+              id="random"
+              type="checkbox"
+              checked={config.fullyRandomTransfer}
+              disabled={locked}
+              onChange={bool('fullyRandomTransfer')}
+            />
+          </div>
+
+          <div className="settings-row" style={{ opacity: config.fullyRandomTransfer ? 0.4 : 1 }}>
+            <label htmlFor="tmin">or a fixed range per round</label>
             <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <input
                 id="tmin"
@@ -94,7 +105,7 @@ export function Settings({
                 min={0}
                 max={40}
                 value={config.transferPerRoundMin}
-                disabled={locked}
+                disabled={locked || config.fullyRandomTransfer}
                 onChange={num('transferPerRoundMin')}
               />
               <span style={{ opacity: 0.5 }}>to</span>
@@ -103,7 +114,7 @@ export function Settings({
                 min={0}
                 max={40}
                 value={config.transferPerRoundMax}
-                disabled={locked}
+                disabled={locked || config.fullyRandomTransfer}
                 onChange={num('transferPerRoundMax')}
                 aria-label="maximum attributes taken per round"
               />
