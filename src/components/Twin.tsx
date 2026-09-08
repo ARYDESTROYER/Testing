@@ -36,16 +36,37 @@ export function Twin({
   const ysRef = useRef<HTMLDivElement>(null)
 
   /* Ambient life: a slow, offset bob on each figure. Skipped outright when the
-     viewer asks for reduced motion — an endless loop run at speed is worse than
-     no loop at all. */
+     viewer asks for reduced motion, and torn down if they ask for it mid-session
+     — the global timeline runs fast in that mode, which would turn an endless
+     loop into a strobe. */
   useEffect(() => {
-    if (
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    ) {
-      return
+    const mq =
+      typeof window !== 'undefined' && window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null
+
+    let ctx: gsap.Context | null = null
+
+    const sync = () => {
+      if (mq?.matches) {
+        ctx?.revert()
+        ctx = null
+        gsap.set([ysRef.current, dsRef.current].filter(Boolean), { y: 0 })
+        return
+      }
+      if (ctx) return
+      ctx = start()
     }
-    const ctx = gsap.context(() => {
+
+    mq?.addEventListener('change', sync)
+    sync()
+    return () => {
+      mq?.removeEventListener('change', sync)
+      ctx?.revert()
+    }
+
+    function start() {
+      return gsap.context(() => {
       gsap.to(ysRef.current, {
         y: -9,
         duration: 3.4,
@@ -61,8 +82,8 @@ export function Twin({
         yoyo: true,
         delay: 0.7,
       })
-    })
-    return () => ctx.revert()
+      })
+    }
   }, [])
 
   /* Reconstruction: mask height, warp amount and colour all follow `reveal`. */

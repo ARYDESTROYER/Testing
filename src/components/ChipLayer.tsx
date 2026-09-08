@@ -28,6 +28,12 @@ export function ChipLayer({
 }) {
   const seen = useRef<Set<string>>(new Set())
   const mounted = useRef(false)
+  // Which ids are new *this* render. Computed here and recorded in an effect,
+  // because a render that React discards must not mark a chip as already seen —
+  // that is what suppresses the fly-in under StrictMode.
+  const fresh = new Set(
+    mounted.current ? attributes.filter((a) => !seen.current.has(a.id)).map((a) => a.id) : [],
+  )
   const [hover, setHover] = useState<HoverTarget>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -36,8 +42,9 @@ export function ChipLayer({
   const wellRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    for (const a of attributes) seen.current.add(a.id)
     mounted.current = true
-  }, [])
+  })
 
   useEffect(() => {
     if (!interactive) {
@@ -105,8 +112,7 @@ export function ChipLayer({
       )}
 
       {attributes.map((a) => {
-        const isNew = mounted.current && !seen.current.has(a.id)
-        seen.current.add(a.id)
+        const isNew = fresh.has(a.id)
         return (
           <Chip
             key={a.id}

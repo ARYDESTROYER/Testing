@@ -47,9 +47,14 @@ export const DROP_CENTER = {
  * the timer and the controls so the canvas stays readable however many
  * attributes accumulate.
  */
+/**
+ * Chips stop short of y 1760 so an auto-placed one can never sit on top of the
+ * two verdict pills at y 1800; the controls also outrank the chip layer, so a
+ * chip a participant drags there still cannot swallow the click.
+ */
 export const ZONE = {
-  ys: { x0: 420, y0: 620, x1: 1420, y1: 1980 },
-  ds: { x0: 3050, y0: 620, x1: 4050, y1: 1980 },
+  ys: { x0: 420, y0: 620, x1: 1420, y1: 1760 },
+  ds: { x0: 3050, y0: 620, x1: 4050, y1: 1760 },
 } as const
 
 /**

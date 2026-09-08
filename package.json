@@ -11,7 +11,8 @@
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "screenshots": "node scripts/shoot.mjs screenshots",
     "check:viewports": "node scripts/check-viewports.mjs",
-    "check:persistence": "node scripts/check-persistence.mjs"
+    "check:persistence": "node scripts/check-persistence.mjs",
+    "check:interaction": "node scripts/check-interaction.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

@@ -111,8 +111,11 @@ export function CoachModal({
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  /** A card dismisses once: the timer, Enter, Escape and the button all race. */
+  const closedRef = useRef(false)
 
   useEffect(() => {
+    closedRef.current = false
     // A previous card may have faded this root out on its way to being replaced.
     gsap.set(rootRef.current, { opacity: 1 })
     const ctx = gsap.context(() => {
@@ -130,6 +133,8 @@ export function CoachModal({
     if (kind === 'transferred') timer = setTimeout(close, 4200)
 
     function close() {
+      if (closedRef.current) return
+      closedRef.current = true
       gsap.to(rootRef.current, {
         opacity: 0,
         duration: 0.4,
@@ -138,19 +143,46 @@ export function CoachModal({
       })
     }
 
+    // The card is the only thing on the canvas while it is up: keep Tab inside
+    // it so the session cannot be ended from behind an instruction.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === 'Escape') close()
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        close()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const focusable = panelRef.current?.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])')
+      if (!focusable?.length) {
+        e.preventDefault()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey && (active === first || !panelRef.current?.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || !panelRef.current?.contains(active))) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKey)
+
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    panelRef.current?.querySelector<HTMLElement>('button')?.focus()
 
     return () => {
       if (timer) clearTimeout(timer)
       window.removeEventListener('keydown', onKey)
+      previouslyFocused?.focus?.()
       ctx.revert()
     }
   }, [kind, onDismiss])
 
   const close = () => {
+    if (closedRef.current) return
+    closedRef.current = true
     gsap.to(rootRef.current, { opacity: 0, duration: 0.4, ease: 'power2.in', onComplete: onDismiss })
   }
 

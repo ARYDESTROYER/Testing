@@ -106,6 +106,11 @@ export function Experience() {
     )
   }, [state.roundIndex, state.phase])
 
+  // The two endings are the only irreversible action on the canvas, so they are
+  // inert — to the pointer and to the keyboard — until a session is actually
+  // running and no instruction card is holding it.
+  const verdictsLive = state.phase === 'playing' && !state.overlay
+
   const roundProgress = state.config.roundSeconds
     ? Math.min(1, state.roundMs / (state.config.roundSeconds * 1000))
     : 0
@@ -275,7 +280,8 @@ export function Experience() {
       {/* ---- verdicts ------------------------------------------------------ */}
       <button
         className="abs verdict verdict-reject"
-        data-live={state.phase === 'playing'}
+        data-live={verdictsLive}
+        disabled={!verdictsLive}
         style={{
           left: VERDICT_REJECT.x,
           top: VERDICT_REJECT.y,
@@ -289,7 +295,8 @@ export function Experience() {
       </button>
       <button
         className="abs verdict verdict-accept"
-        data-live={state.phase === 'playing'}
+        data-live={verdictsLive}
+        disabled={!verdictsLive}
         style={{
           left: VERDICT_ACCEPT.x,
           top: VERDICT_ACCEPT.y,

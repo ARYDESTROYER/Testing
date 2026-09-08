@@ -10,19 +10,35 @@ import { CHIP_H, CHIP_MAX_W } from './layout'
 
 const CHIP_PADDING_X = 40
 const CHIP_BORDER = 1
-const CHIP_FONT = '300 32px "Sora", ui-sans-serif, system-ui, sans-serif'
 /** The comp sets -1.28 at 32px; canvas measureText cannot apply it, so it is
  *  subtracted per character afterwards. */
 const CHIP_LETTER_SPACING = -1.28
 
 let ctx: CanvasRenderingContext2D | null | undefined
 
+/**
+ * next/font gives the family a generated name, so measuring against a literal
+ * "Sora" silently falls through to a system font and every width comes out
+ * wrong. Read the name the page is actually using.
+ */
+function chipFont(): string {
+  const family =
+    getComputedStyle(document.documentElement).getPropertyValue('--font-sora').trim() ||
+    'Sora'
+  return `300 32px ${family}, ui-sans-serif, system-ui, sans-serif`
+}
+
 function context(): CanvasRenderingContext2D | null {
   if (ctx !== undefined) return ctx
   if (typeof document === 'undefined') return (ctx = null)
   ctx = document.createElement('canvas').getContext('2d')
-  if (ctx) ctx.font = CHIP_FONT
+  if (ctx) ctx.font = chipFont()
   return ctx
+}
+
+/** Called once the webfont has loaded, so the cached context re-reads it. */
+export function refreshChipFont(): void {
+  if (ctx) ctx.font = chipFont()
 }
 
 export function chipWidth(text: string): number {

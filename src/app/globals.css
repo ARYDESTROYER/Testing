@@ -72,6 +72,14 @@ input {
   outline: none;
 }
 
+/* The reset above removes the browser's focus ring, so put a visible one back
+   for anyone navigating by keyboard. */
+input:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* -----------------------------------------------------------------------------
    Stage
    -------------------------------------------------------------------------- */
@@ -255,7 +263,9 @@ input {
    -------------------------------------------------------------------------- */
 
 .table {
-  border: 2px solid var(--line);
+  /* An inset shadow rather than a border: a border would move every absolutely
+     positioned child two units in, off the comp's grid. */
+  box-shadow: inset 0 0 0 2px var(--line);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(10px) saturate(1.3);
@@ -339,6 +349,7 @@ input {
   justify-content: center;
   padding: 0 28px;
   white-space: nowrap;
+  box-shadow: var(--shadow-pill);
   transition:
     transform 0.4s var(--ease-out),
     filter 0.5s var(--ease-out),
@@ -346,9 +357,12 @@ input {
     color 0.5s var(--ease-out);
 }
 
+/* Idle: the comp's pastel fill, and genuinely inert. The pastel-versus-saturated
+   difference already says "not yet"; the comp's blur is on one pill only, which
+   reads as a leftover rather than a state. */
 .verdict[data-live='false'] {
-  filter: blur(4.3px);
   pointer-events: none;
+  cursor: default;
 }
 
 .verdict-reject {
@@ -405,7 +419,9 @@ input {
   font-weight: 400;
   letter-spacing: -0.03em; /* -1.08 at 36 */
   color: var(--ink);
-  text-align: center;
+  /* The comp starts the placeholder 40 units in rather than centring it, which
+     is also how a long phrase behaves best: it grows rightward. */
+  text-align: left;
   padding: 0 100px 0 40px;
   white-space: nowrap;
   overflow: hidden;
@@ -472,6 +488,15 @@ input {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 10;
+}
+
+/* The controls sit above the chips: a chip dragged over one must never be able
+   to swallow the click that ends the session. */
+.verdict,
+.inputbar,
+.pill-start {
+  z-index: 20;
 }
 
 .chip {
@@ -558,8 +583,9 @@ input {
 
 .scrim {
   position: absolute;
-  /* Reaches past the artboard so the letterboxed edges dim with it. */
-  inset: -2000px;
+  /* Reaches well past the artboard so the letterboxed edges dim with it even on
+     a display far from the comp's aspect ratio. */
+  inset: -300%;
   background: #4d4d4d;
   opacity: 0.71;
 }
@@ -572,7 +598,7 @@ input {
 
 .name-pill {
   border-radius: 999px;
-  background: rgba(216, 232, 239, 0.82);
+  background: var(--pill);
   display: flex;
   align-items: center;
   justify-content: center;

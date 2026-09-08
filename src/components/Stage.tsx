@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { FRAME } from '@/lib/config'
+import { refreshChipFont } from '@/game/measure'
 
 /**
  * Scales the 4481 x 2739 artboard to fit the viewport with one transform, so
@@ -12,11 +13,12 @@ import { FRAME } from '@/lib/config'
  */
 /**
  * The comp is a wide artboard, and the canvas is meant for a laptop or a kiosk
- * screen. Below this width it still works, but the chips and the input become
+ * screen. Below this scale it still works, but the chips and the input become
  * too small to use, so the facilitator gets told rather than the participant
- * getting a broken session.
+ * getting a broken session. Measured on the scale rather than the width, so a
+ * short window is caught as well as a narrow one.
  */
-const MIN_USABLE_WIDTH = 820
+const MIN_USABLE_SCALE = 0.2
 
 export function Stage({
   children,
@@ -37,7 +39,7 @@ export function Stage({
       const s = Math.min(window.innerWidth / FRAME.width, window.innerHeight / FRAME.height)
       host.style.setProperty('--s', String(s))
       if (scaleRef) scaleRef.current = s
-      setTooNarrow(window.innerWidth < MIN_USABLE_WIDTH)
+      setTooNarrow(s < MIN_USABLE_SCALE)
     }
 
     apply()
@@ -72,7 +74,11 @@ export function Stage({
   const [fontsReady, setFontsReady] = useState(false)
   useEffect(() => {
     let alive = true
-    const done = () => alive && setFontsReady(true)
+    const done = () => {
+      if (!alive) return
+      refreshChipFont()
+      setFontsReady(true)
+    }
     if (typeof document !== 'undefined' && 'fonts' in document) {
       document.fonts.ready.then(done).catch(done)
     } else {
@@ -93,7 +99,7 @@ export function Stage({
       </div>
       {tooNarrow && (
         <div className="narrow-notice" role="status">
-          This canvas is built for a laptop or a larger screen. Open it on a wider
+          This canvas is built for a laptop or a larger screen. Open it on a bigger
           display before running a session.
         </div>
       )}

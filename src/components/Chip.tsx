@@ -66,6 +66,8 @@ export function Chip({
   const appliedRef = useRef({ x: attribute.x, y: attribute.y })
   const draggingRef = useRef(false)
   const movedRef = useRef(false)
+  /** Set when a drag ended on a drop target, so the throw does not overwrite it. */
+  const landedRef = useRef(false)
 
   // Callbacks change every render; the Draggable is created once and reads them
   // through a ref so it never has to be torn down and rebuilt mid-drag.
@@ -150,6 +152,8 @@ export function Chip({
           },
           duration: 1,
           ease: 'power3.inOut',
+          // Kills any inertia tween still carrying the chip from a throw.
+          overwrite: 'auto',
         },
         0,
       )
@@ -172,6 +176,7 @@ export function Chip({
       bounds: { minX: 0, minY: 0, maxX: FRAME.width - width, maxY: FRAME.height - CHIP_H },
       onPress() {
         movedRef.current = false
+        landedRef.current = false
         gsap.to(el, { scale: 1.06, duration: 0.18, ease: 'power2.out' })
       },
       onDragStart() {
@@ -196,22 +201,44 @@ export function Chip({
         handlers.current.onDragState(false)
         gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
 
+        // The hit test uses where the participant let go, which is what they
+        // aimed at — not where the throw eventually settles.
         const cx = this.x + width / 2
         const cy = this.y + CHIP_H / 2
         const side = handlers.current.side
 
+        // A drop takes over the chip's position, so the throw must not report
+        // one afterwards; the flight tween overwrites the inertia tween itself.
+        const land = (fn: () => void) => {
+          landedRef.current = true
+          fn()
+        }
+
         if (handlers.current.canDiscard && inside(DISCARD_BOX, cx, cy)) {
-          handlers.current.onDiscard(attribute.id)
+          land(() => handlers.current.onDiscard(attribute.id))
           return
         }
         if (side === 'ys' && inside(DROP.ds, cx, cy)) {
-          handlers.current.onSetSide(attribute.id, 'ds')
+          land(() => handlers.current.onSetSide(attribute.id, 'ds'))
           return
         }
         if (side === 'ds' && inside(DROP.ys, cx, cy)) {
-          handlers.current.onSetSide(attribute.id, 'ys')
+          land(() => handlers.current.onSetSide(attribute.id, 'ys'))
           return
         }
+        // Record the release point now so nothing is lost if the throw is
+        // interrupted; onThrowComplete corrects it to where it settles.
+        appliedRef.current = { x: this.x, y: this.y }
+        handlers.current.onMove(attribute.id, this.x, this.y)
+      },
+      onThrowComplete() {
+        // Inertia carries the chip on after the pointer is released, so the
+        // position recorded at release is not where it ends up.
+        if (landedRef.current) {
+          landedRef.current = false
+          return
+        }
+        if (handlers.current.side === 'gone') return
         appliedRef.current = { x: this.x, y: this.y }
         handlers.current.onMove(attribute.id, this.x, this.y)
       },
@@ -273,7 +300,18 @@ export function Chip({
       title={
         attribute.side === 'ys'
           ? `${attribute.text} — drag onto your digital self to hand it over`
-          : `${attribute.text} — drag back onto your self to take it back`
+          : attribute.side === 'ds'
+            ? `${attribute.text} — drag back onto your self to take it back`
+            : attribute.text
+      }
+      aria-label={
+        attribute.side === 'ys'
+          ? `${attribute.text}. Yours. Press Enter to hand it to your digital self${
+              canDiscard ? ', or Delete to let it go' : ''
+            }.`
+          : attribute.side === 'ds'
+            ? `${attribute.text}. Your digital self has this. Press Enter to take it back.`
+            : `${attribute.text}. Let go.`
       }
       disabled={!interactive || attribute.side === 'gone'}
       tabIndex={attribute.side === 'gone' ? -1 : 0}
