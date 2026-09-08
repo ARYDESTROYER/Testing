@@ -442,7 +442,7 @@ button:focus-visible {
   height: 59px;
   border-radius: 999px;
   background: var(--accent-light);
-  border: 1px solid #fff;
+  border: 1px solid rgba(255, 255, 255, 0.64); /* the comp's stroke is 64% white */
   box-shadow: var(--shadow-dot);
   display: grid;
   place-items: center;
