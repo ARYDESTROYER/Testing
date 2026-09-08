@@ -881,16 +881,6 @@ button:focus-visible {
   background: var(--accent);
 }
 
-.dimension-tag {
-  font-size: 28px;
-  line-height: 36px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent-light);
-  text-align: center;
-}
-
 /* -----------------------------------------------------------------------------
    Reduced motion
    -------------------------------------------------------------------------- */

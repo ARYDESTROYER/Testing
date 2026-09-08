@@ -102,8 +102,7 @@ export const TIMER = { y: 1859, w: 700 }
 export const PIPS = { y: 2412, w: 700 }
 export const START = { x: 2098, y: 1695, w: 193, h: 95 }
 export const INPUT = { y: 2266, w: 823, h: 95 }
-export const PROMPT = { y: 2092, w: 2200 }
-export const DIM_TAG = { y: 2036, w: 2200 }
+export const PROMPT = { y: 2062, w: 2200 }
 
 export const VERDICT_ACCEPT = { x: 2679, y: 1800, w: 437, h: 95 }
 export const VERDICT_REJECT = { x: 1230, y: 1800, w: 576, h: 95 }

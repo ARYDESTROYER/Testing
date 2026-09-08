@@ -16,7 +16,6 @@ import {
   BRIDGE,
   BRIDGE_KNOCKOUT,
   CODE,
-  DIM_TAG,
   DS,
   PIPS,
   PROMPT,
@@ -53,7 +52,6 @@ export function Experience() {
   const codeRef = useRef<HTMLDivElement>(null)
   const startRef = useRef<HTMLButtonElement>(null)
   const promptRef = useRef<HTMLDivElement>(null)
-  const dimRef = useRef<HTMLDivElement>(null)
 
   const round = state.rounds[Math.min(state.roundIndex, Math.max(0, state.rounds.length - 1))]
 
@@ -97,12 +95,11 @@ export function Experience() {
   /* --- a new prompt arrives ---------------------------------------------- */
   useEffect(() => {
     if (state.phase !== 'playing') return
-    const targets = [dimRef.current, promptRef.current].filter(Boolean)
-    if (!targets.length) return
+    if (!promptRef.current) return
     gsap.fromTo(
-      targets,
+      promptRef.current,
       { y: 18, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out', stagger: 0.06, overwrite: true },
+      { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out', overwrite: true },
     )
   }, [state.roundIndex, state.phase])
 
@@ -312,15 +309,6 @@ export function Experience() {
       {/* ---- prompt and input ---------------------------------------------- */}
       {playing && (
         <>
-          {!state.writingClosed && round && (
-            <div
-              ref={dimRef}
-              className="abs dimension-tag"
-              style={{ left: centerX(DIM_TAG.w), top: DIM_TAG.y, width: DIM_TAG.w }}
-            >
-              {round.dimension.label}
-            </div>
-          )}
           <div
             ref={promptRef}
             className="abs t-prompt"

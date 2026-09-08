@@ -259,9 +259,8 @@ choice rather than an oversight:
   on the reject pill is not reproduced — it is on one pill and not the other,
   which reads as a leftover. The pastel-versus-saturated difference already says
   "not yet".
-- **Two things the comp does not have:** the participant code sits quietly in
-  the top-left during play so the facilitator can see it, and the current
-  dimension is named above the prompt.
+- **One thing the comp does not have:** the participant code sits quietly in the
+  top-left during play so the facilitator can see it.
 
 ---
 
