@@ -133,6 +133,17 @@ export function Settings({
           </div>
 
           <div className="settings-row">
+            <label htmlFor="discard">allow letting attributes go</label>
+            <input
+              id="discard"
+              type="checkbox"
+              checked={config.allowDiscard}
+              disabled={locked}
+              onChange={bool('allowDiscard')}
+            />
+          </div>
+
+          <div className="settings-row">
             <label htmlFor="coach">show the instruction cards</label>
             <input
               id="coach"

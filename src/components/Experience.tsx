@@ -339,8 +339,11 @@ export function Experience() {
       {playing && (
         <ChipLayer
           attributes={state.attributes}
+          allowDiscard={state.config.allowDiscard && state.phase === 'playing'}
+          interactive={state.phase === 'playing' && !state.overlay}
           onMove={game.moveAttribute}
           onSetSide={(id, side) => game.setSide(id, side, 'participant')}
+          onDiscard={game.discard}
         />
       )}
 

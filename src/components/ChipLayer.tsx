@@ -2,33 +2,49 @@
 
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import type { Attribute, Side } from '@/lib/types'
-import { Chip } from './Chip'
-import { DROP, DROP_CENTER, INPUT, PEDESTAL, YS, DS } from '@/game/layout'
-import { CX } from '@/game/layout'
+import type { Attribute, DropSide } from '@/lib/types'
+import { Chip, type HoverTarget } from './Chip'
+import { CX, DISCARD, DROP, INPUT } from '@/game/layout'
 
 /**
- * Every attribute on the canvas, plus the halos that light up the figure a chip
- * is about to be dropped on.
+ * Every attribute on the canvas, the halos that light up whichever figure a
+ * chip is about to be dropped on, and the well a participant can let an
+ * attribute go into.
  */
 export function ChipLayer({
   attributes,
+  allowDiscard,
+  interactive,
   onMove,
   onSetSide,
+  onDiscard,
 }: {
   attributes: Attribute[]
+  allowDiscard: boolean
+  interactive: boolean
   onMove: (id: string, x: number, y: number) => void
-  onSetSide: (id: string, side: Side) => void
+  onSetSide: (id: string, side: DropSide) => void
+  onDiscard: (id: string) => void
 }) {
   const seen = useRef<Set<string>>(new Set())
   const mounted = useRef(false)
-  const [hover, setHover] = useState<Side | null>(null)
+  const [hover, setHover] = useState<HoverTarget>(null)
+  const [dragging, setDragging] = useState(false)
+
   const ysHalo = useRef<HTMLDivElement>(null)
   const dsHalo = useRef<HTMLDivElement>(null)
+  const wellRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     mounted.current = true
   }, [])
+
+  useEffect(() => {
+    if (!interactive) {
+      setHover(null)
+      setDragging(false)
+    }
+  }, [interactive])
 
   useEffect(() => {
     gsap.to(ysHalo.current, {
@@ -43,7 +59,13 @@ export function ChipLayer({
       duration: 0.35,
       ease: 'power2.out',
     })
-  }, [hover])
+    gsap.to(wellRef.current, {
+      opacity: dragging ? 1 : 0,
+      scale: hover === 'discard' ? 1.05 : 1,
+      duration: 0.35,
+      ease: 'power2.out',
+    })
+  }, [hover, dragging])
 
   const spawn = { x: CX - 120, y: INPUT.y - 30 }
 
@@ -70,6 +92,18 @@ export function ChipLayer({
         }}
       />
 
+      {allowDiscard && (
+        <div
+          ref={wellRef}
+          className="discard-well"
+          data-armed={hover === 'discard'}
+          style={{ left: DISCARD.x, top: DISCARD.y, width: DISCARD.w, height: DISCARD.h }}
+          aria-hidden
+        >
+          <span>let go of it</span>
+        </div>
+      )}
+
       {attributes.map((a) => {
         const isNew = mounted.current && !seen.current.has(a.id)
         seen.current.add(a.id)
@@ -78,20 +112,16 @@ export function ChipLayer({
             key={a.id}
             attribute={a}
             spawnFrom={isNew ? spawn : undefined}
+            canDiscard={allowDiscard && a.side === 'ys'}
+            interactive={interactive}
             onMove={onMove}
             onSetSide={onSetSide}
+            onDiscard={onDiscard}
             onHover={setHover}
+            onDragState={setDragging}
           />
         )
       })}
     </div>
   )
-}
-
-/** Exported for the end card, which draws the same two clusters at rest. */
-export const CLUSTER_CENTERS = {
-  ys: DROP_CENTER.ys,
-  ds: DROP_CENTER.ds,
-  pedestal: PEDESTAL,
-  figures: { YS, DS },
 }

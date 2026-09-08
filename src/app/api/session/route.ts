@@ -22,6 +22,7 @@ function sanitize(input: unknown): GameConfig {
     transferEveryNRounds: num(c.transferEveryNRounds, DEFAULT_CONFIG.transferEveryNRounds, 1, 10),
     shuffleDimensions: c.shuffleDimensions ?? DEFAULT_CONFIG.shuffleDimensions,
     showCoachOverlays: c.showCoachOverlays ?? DEFAULT_CONFIG.showCoachOverlays,
+    allowDiscard: c.allowDiscard ?? DEFAULT_CONFIG.allowDiscard,
   }
 }
 

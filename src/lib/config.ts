@@ -22,6 +22,12 @@ export interface GameConfig {
   shuffleDimensions: boolean
   /** Show the "these were transferred" and "drag and drop" coaching overlays. */
   showCoachOverlays: boolean
+  /**
+   * Let participants drop an attribute into the "let go" zone to destroy it
+   * instead of handing it over. Off makes handing over the only way to shed
+   * one, which is the state the comp is drawn in.
+   */
+  allowDiscard: boolean
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
@@ -32,6 +38,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   transferEveryNRounds: 1,
   shuffleDimensions: true,
   showCoachOverlays: true,
+  allowDiscard: true,
 }
 
 /**
@@ -81,5 +88,6 @@ export function configFromSearch(search: string): GameConfig {
     transferEveryNRounds: num('every', DEFAULT_CONFIG.transferEveryNRounds, 1, 10),
     shuffleDimensions: bool('shuffle', DEFAULT_CONFIG.shuffleDimensions),
     showCoachOverlays: bool('coach', DEFAULT_CONFIG.showCoachOverlays),
+    allowDiscard: bool('discard', DEFAULT_CONFIG.allowDiscard),
   }
 }

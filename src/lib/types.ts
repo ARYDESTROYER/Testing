@@ -1,8 +1,15 @@
 import type { DimensionId } from './prompts'
 import type { GameConfig } from './config'
 
-/** Where an attribute currently lives. */
-export type Side = 'ys' | 'ds'
+/**
+ * Where an attribute currently lives. "gone" is an attribute the participant
+ * let go of rather than handing over — the canvas notes ask for both, and it is
+ * what makes "removed" and "received" two different numbers.
+ */
+export type Side = 'ys' | 'ds' | 'gone'
+
+/** The two sides a chip can be dropped on. */
+export type DropSide = 'ys' | 'ds'
 
 export interface Attribute {
   id: string
@@ -16,9 +23,9 @@ export interface Attribute {
   /** ms since the session timer started. */
   writtenAt: number
   side: Side
-  /** Set when the attribute moves to the digital self. */
+  /** Set when the attribute leaves the self, either way. */
   transferredAt?: number
-  /** How it got there — the participant dragged it, or the system took it. */
+  /** How it left — the participant moved it, or the system took it. */
   transferredBy?: 'system' | 'participant'
   /** Position on the canvas, in design units, relative to the frame origin. */
   x: number
@@ -31,6 +38,7 @@ export type GameEventType =
   | 'attribute_written'
   | 'attribute_transferred'
   | 'attribute_returned'
+  | 'attribute_discarded'
   | 'attribute_moved'
   | 'system_transfer'
   | 'overlay_shown'
@@ -74,9 +82,9 @@ export interface Tally {
 export function tally(attributes: Attribute[]): Tally {
   const totalWritten = attributes.length
   const received = attributes.filter((a) => a.side === 'ds').length
-  const left = totalWritten - received
-  // An attribute leaving "your self" is exactly an attribute arriving at the
-  // digital self, which is why the comp shows removed === received and
-  // left === to be gained.
-  return { totalWritten, removed: received, left, received, toBeGained: left }
+  const left = attributes.filter((a) => a.side === 'ys').length
+  // Removed counts everything that has left the self: handed over, or let go
+  // of. When nothing is let go, removed equals received and left equals to be
+  // gained, which is the state the comp is drawn in.
+  return { totalWritten, removed: totalWritten - left, left, received, toBeGained: left }
 }

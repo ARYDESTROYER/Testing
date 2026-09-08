@@ -34,7 +34,7 @@ page.on('console', (m) => {
 page.on('pageerror', (e) => console.log('  ! pageerror:', e.message))
 
 // Short rounds so a whole session fits in one pass.
-await page.goto(`${BASE}/?seconds=8&rounds=4&min=2&max=3`, { waitUntil: 'networkidle' })
+await page.goto(`${BASE}/?seconds=14&rounds=4&min=2&max=3`, { waitUntil: 'networkidle' })
 await page.waitForTimeout(1400)
 await shot(page, 'name-gate', 400)
 
@@ -88,6 +88,27 @@ if (box && dsBox) {
   await page.mouse.up()
 }
 await shot(page, 'after-drag', 1500)
+
+// Let one attribute go, into the well that only appears mid-drag.
+const doomed = page.locator('.chip[data-side="ys"]:not([disabled])').first()
+const dBox = await doomed.boundingBox()
+const well = await page.locator('.discard-well').boundingBox()
+if (dBox && well) {
+  await page.mouse.move(dBox.x + dBox.width / 2, dBox.y + dBox.height / 2)
+  await page.mouse.down()
+  const tx = well.x + well.width / 2
+  const ty = well.y + well.height / 2
+  for (let i = 1; i <= 18; i++) {
+    await page.mouse.move(
+      dBox.x + dBox.width / 2 + ((tx - dBox.x - dBox.width / 2) * i) / 18,
+      dBox.y + dBox.height / 2 + ((ty - dBox.y - dBox.height / 2) * i) / 18,
+    )
+    await page.waitForTimeout(16)
+  }
+  await shot(page, 'discard-armed', 150)
+  await page.mouse.up()
+  await shot(page, 'after-discard', 1400)
+}
 
 // Let the round roll over so the system takes its share and the cards appear.
 await page.waitForSelector('.modal', { timeout: 20000 }).catch(() => {})

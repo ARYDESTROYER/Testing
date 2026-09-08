@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Attribute, EndReason, Side } from '@/lib/types'
+import type { Attribute, DropSide, EndReason } from '@/lib/types'
 import { tally } from '@/lib/types'
 import { DEFAULT_CONFIG, type GameConfig } from '@/lib/config'
 import {
@@ -57,7 +57,8 @@ export interface GameApi {
   start: () => void
   submit: (text: string) => void
   moveAttribute: (id: string, x: number, y: number) => void
-  setSide: (id: string, side: Side, by: 'participant') => void
+  setSide: (id: string, side: DropSide, by: 'participant') => void
+  discard: (id: string) => void
   dismissOverlay: () => void
   finish: (reason: EndReason) => void
 }
@@ -217,7 +218,7 @@ export function useGame(): GameApi {
 
   /** A chip dropped on the other figure changes hands. */
   const setSide = useCallback(
-    (id: string, side: Side, by: 'participant') => {
+    (id: string, side: DropSide, by: 'participant') => {
       const s = ref.current
       const current = s.attributes.find((a) => a.id === id)
       if (!current || current.side === side) return
@@ -252,6 +253,30 @@ export function useGame(): GameApi {
         reveal: reconstruction(attributes),
         arrivalTick: side === 'ds' ? s.arrivalTick + 1 : s.arrivalTick,
       })
+    },
+    [commit],
+  )
+
+  /** Letting an attribute go: removed from the self, never received. */
+  const discard = useCallback(
+    (id: string) => {
+      const s = ref.current
+      const current = s.attributes.find((a) => a.id === id)
+      if (!current || current.side === 'gone' || !s.config.allowDiscard) return
+
+      const next: Attribute = {
+        ...current,
+        side: 'gone',
+        transferredAt: s.sessionMs,
+        transferredBy: 'participant',
+      }
+      writerRef.current?.attribute(next)
+      writerRef.current?.event(
+        event('attribute_discarded', s.sessionMs, { id, text: next.text, from: current.side }),
+      )
+
+      const attributes = s.attributes.map((a) => (a.id === id ? next : a))
+      commit({ ...s, attributes, reveal: reconstruction(attributes) })
     },
     [commit],
   )
@@ -407,6 +432,7 @@ export function useGame(): GameApi {
     submit,
     moveAttribute,
     setSide,
+    discard,
     dismissOverlay,
     finish,
   }

@@ -5,9 +5,9 @@ import gsap from 'gsap'
 import { Draggable } from 'gsap/Draggable'
 import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin'
-import type { Attribute, Side } from '@/lib/types'
+import type { Attribute, DropSide } from '@/lib/types'
 import { FRAME } from '@/lib/config'
-import { CHIP_H, DROP } from '@/game/layout'
+import { CHIP_H, DISCARD, DROP } from '@/game/layout'
 import { chipWidth } from '@/game/measure'
 
 if (typeof window !== 'undefined') {
@@ -17,6 +17,15 @@ if (typeof window !== 'undefined') {
 function inside(box: { x0: number; y0: number; x1: number; y1: number }, x: number, y: number) {
   return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1
 }
+
+const DISCARD_BOX = {
+  x0: DISCARD.x,
+  y0: DISCARD.y,
+  x1: DISCARD.x + DISCARD.w,
+  y1: DISCARD.y + DISCARD.h,
+}
+
+export type HoverTarget = DropSide | 'discard' | null
 
 /**
  * One attribute on the canvas.
@@ -29,17 +38,28 @@ function inside(box: { x0: number; y0: number; x1: number; y1: number }, x: numb
 export function Chip({
   attribute,
   spawnFrom,
+  canDiscard,
+  interactive,
   onMove,
   onSetSide,
+  onDiscard,
   onHover,
+  onDragState,
 }: {
   attribute: Attribute
   /** Where a freshly written chip flies in from, in design units. */
   spawnFrom?: { x: number; y: number }
+  /** Whether the "let go" well accepts this chip. */
+  canDiscard: boolean
+  /** False while an instruction card is up, or once the session has ended. */
+  interactive: boolean
   onMove: (id: string, x: number, y: number) => void
-  onSetSide: (id: string, side: Side) => void
+  onSetSide: (id: string, side: DropSide) => void
+  onDiscard: (id: string) => void
   /** Tells the canvas which drop target the pointer is currently over. */
-  onHover: (side: Side | null) => void
+  onHover: (target: HoverTarget) => void
+  /** True for exactly as long as this chip is being dragged. */
+  onDragState: (active: boolean) => void
 }) {
   const ref = useRef<HTMLButtonElement>(null)
   const draggableRef = useRef<Draggable | null>(null)
@@ -49,8 +69,24 @@ export function Chip({
 
   // Callbacks change every render; the Draggable is created once and reads them
   // through a ref so it never has to be torn down and rebuilt mid-drag.
-  const handlers = useRef({ onMove, onSetSide, onHover, side: attribute.side })
-  handlers.current = { onMove, onSetSide, onHover, side: attribute.side }
+  const handlers = useRef({
+    onMove,
+    onSetSide,
+    onDiscard,
+    onHover,
+    onDragState,
+    side: attribute.side,
+    canDiscard,
+  })
+  handlers.current = {
+    onMove,
+    onSetSide,
+    onDiscard,
+    onHover,
+    onDragState,
+    side: attribute.side,
+    canDiscard,
+  }
 
   /* --- entrance ---------------------------------------------------------- */
   useLayoutEffect(() => {
@@ -141,28 +177,33 @@ export function Chip({
       onDragStart() {
         draggingRef.current = true
         el.dataset.dragging = 'true'
+        handlers.current.onDragState(true)
       },
       onDrag() {
         movedRef.current = true
         const cx = this.x + width / 2
         const cy = this.y + CHIP_H / 2
-        const over: Side | null = inside(DROP.ds, cx, cy)
-          ? 'ds'
-          : inside(DROP.ys, cx, cy)
-            ? 'ys'
-            : null
+        let over: HoverTarget = null
+        if (handlers.current.canDiscard && inside(DISCARD_BOX, cx, cy)) over = 'discard'
+        else if (inside(DROP.ds, cx, cy)) over = 'ds'
+        else if (inside(DROP.ys, cx, cy)) over = 'ys'
         handlers.current.onHover(over === handlers.current.side ? null : over)
       },
       onDragEnd() {
         draggingRef.current = false
         delete el.dataset.dragging
         handlers.current.onHover(null)
+        handlers.current.onDragState(false)
         gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
 
         const cx = this.x + width / 2
         const cy = this.y + CHIP_H / 2
         const side = handlers.current.side
 
+        if (handlers.current.canDiscard && inside(DISCARD_BOX, cx, cy)) {
+          handlers.current.onDiscard(attribute.id)
+          return
+        }
         if (side === 'ys' && inside(DROP.ds, cx, cy)) {
           handlers.current.onSetSide(attribute.id, 'ds')
           return
@@ -180,19 +221,48 @@ export function Chip({
       onClick() {
         // A click that never turned into a drag hands the attribute over.
         if (movedRef.current) return
-        handlers.current.onSetSide(
-          attribute.id,
-          handlers.current.side === 'ys' ? 'ds' : 'ys',
-        )
+        if (handlers.current.side === 'gone') return
+        handlers.current.onSetSide(attribute.id, handlers.current.side === 'ys' ? 'ds' : 'ys')
       },
     })
 
     draggableRef.current = instance
     return () => {
+      if (draggingRef.current) {
+        draggingRef.current = false
+        handlers.current.onHover(null)
+        handlers.current.onDragState(false)
+      }
       instance.kill()
       draggableRef.current = null
     }
   }, [attribute.id, attribute.text])
+
+  /* --- an instruction card holds the canvas still -------------------------- */
+  useEffect(() => {
+    const d = draggableRef.current
+    if (!d) return
+    if (interactive && attribute.side !== 'gone') d.enable()
+    else d.disable()
+  }, [interactive, attribute.side])
+
+  /* --- letting go --------------------------------------------------------- */
+  useEffect(() => {
+    const el = ref.current
+    if (!el || attribute.side !== 'gone') return
+    draggableRef.current?.disable()
+    gsap.to(el, {
+      opacity: 0,
+      scale: 0.55,
+      y: `+=90`,
+      filter: 'blur(9px)',
+      duration: 0.7,
+      ease: 'power2.in',
+      onComplete: () => {
+        el.style.pointerEvents = 'none'
+      },
+    })
+  }, [attribute.side])
 
   return (
     <button
@@ -205,10 +275,16 @@ export function Chip({
           ? 'Drag onto your digital self to hand it over'
           : 'Drag back onto your self to take it back'
       }
+      disabled={!interactive}
       onKeyDown={(e) => {
+        if (!interactive) return
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           onSetSide(attribute.id, attribute.side === 'ys' ? 'ds' : 'ys')
+        }
+        if (canDiscard && (e.key === 'Delete' || e.key === 'Backspace')) {
+          e.preventDefault()
+          onDiscard(attribute.id)
         }
       }}
     >

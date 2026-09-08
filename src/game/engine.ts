@@ -1,5 +1,5 @@
-import type { Attribute, GameEvent, Side } from '@/lib/types'
-import { DIMENSIONS, type Dimension, type DimensionId } from '@/lib/prompts'
+import type { Attribute, DropSide, GameEvent } from '@/lib/types'
+import { DIMENSIONS, type Dimension } from '@/lib/prompts'
 import type { GameConfig } from '@/lib/config'
 import { CHIP_H, ZONE } from './layout'
 
@@ -84,7 +84,7 @@ interface Placed {
  */
 export function placeChip(
   rng: Rng,
-  side: Side,
+  side: DropSide,
   width: number,
   existing: readonly Placed[],
   attempts = 120,
@@ -157,6 +157,9 @@ export function pickSystemTransfer(
 export function reconstruction(attributes: readonly Attribute[]): number {
   if (!attributes.length) return 0
   const received = attributes.filter((a) => a.side === 'ds').length
+  // Deliberately over everything written, not everything still in play: an
+  // attribute the participant let go of is one the digital self can never have,
+  // so destroying enough of yourself puts a full replica out of reach.
   return received / attributes.length
 }
 
@@ -179,6 +182,4 @@ export function event(
   return { type, at: Math.round(at), payload }
 }
 
-export function dimensionLabel(id: DimensionId): string {
-  return DIMENSIONS.find((d) => d.id === id)?.label ?? id
-}
+

@@ -31,6 +31,12 @@ export const DROP = {
   ds: { x0: 2292, y0: 1027, x1: 3042, y1: 1883 },
 }
 
+/**
+ * The "let go" well. It only appears while a chip is being dragged, so the
+ * canvas stays clean until the choice is actually in front of the participant.
+ */
+export const DISCARD = { x: 420, y: 2250, w: 520, h: 330 }
+
 export const DROP_CENTER = {
   ys: { x: (DROP.ys.x0 + DROP.ys.x1) / 2, y: (DROP.ys.y0 + DROP.ys.y1) / 2 },
   ds: { x: (DROP.ds.x0 + DROP.ds.x1) / 2, y: (DROP.ds.y0 + DROP.ds.y1) / 2 },

@@ -868,3 +868,48 @@ input {
 .endcard-center .endcard {
   width: min(1900px, 88%);
 }
+
+/* -----------------------------------------------------------------------------
+   The "let go" well
+   -----------------------------------------------------------------------------
+   The canvas notes ask participants to give attributes away *or destroy* them.
+   The well only appears while a chip is in the hand, so the canvas stays quiet
+   until the choice is actually being made.
+   -------------------------------------------------------------------------- */
+
+.discard-well {
+  position: absolute;
+  border-radius: 999px;
+  border: 2px dashed rgba(194, 44, 44, 0.35);
+  background: rgba(239, 217, 217, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.discard-well span {
+  font-size: 40px;
+  line-height: 52px;
+  font-weight: 400;
+  color: rgba(194, 44, 44, 0.7);
+  letter-spacing: 0.02em;
+}
+
+.discard-well[data-armed='true'] {
+  border-color: rgba(194, 44, 44, 0.85);
+  border-style: solid;
+  background: rgba(239, 217, 217, 0.6);
+}
+
+.discard-well[data-armed='true'] span {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* An attribute that has been let go stops taking clicks while it dissolves. */
+.chip[data-side='gone'] {
+  cursor: default;
+}
