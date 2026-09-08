@@ -47,7 +47,8 @@ function Value({ value, style }: { value: number; style: React.CSSProperties }) 
 /**
  * The five counters, laid out on the comp's grid. An attribute leaving the self
  * is the same attribute arriving at the digital self, which is why removed
- * mirrors received and left mirrors to-be-gained.
+ * mirrors received and left mirrors to-be-gained — until something is let go of,
+ * which removes it from the self without giving it to anyone.
  */
 export function AttributeTable({ tally, visible }: { tally: Tally; visible: boolean }) {
   const ref = useRef<HTMLDivElement>(null)

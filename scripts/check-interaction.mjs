@@ -70,15 +70,14 @@ check('chip widths are measured against the rendered font', font.matches, font.f
    movement between down and up and cannot catch a dead-zone bug. A real
    trackpad or finger drifts a pixel or two, which is several design units on a
    scaled stage — so drive it by hand. */
-// Handing an attribute over copies it, so the original stays on the left. Tap a
-// chip whose text the digital self does not already have, or the second tap is
-// correctly a no-op.
-const copiedTexts = new Set()
+// Handing an attribute over moves it: the chip leaves the participant's side.
+// Track which texts have already gone, so each pass taps a different chip.
+const handedTexts = new Set()
 const freshChip = async () => {
   const chips = await page.locator('.chip[data-side="ys"]').all()
   for (const c of chips) {
     const t = (await c.textContent())?.trim()
-    if (t && !copiedTexts.has(t)) return { locator: c, text: t }
+    if (t && !handedTexts.has(t)) return { locator: c, text: t }
   }
   return null
 }
@@ -87,7 +86,7 @@ const tap = async (drift) => {
   const before = await page.evaluate(() => document.querySelectorAll('.chip[data-side="ds"]').length)
   const target = await freshChip()
   if (!target) return { before, after: before, text: null }
-  copiedTexts.add(target.text)
+  handedTexts.add(target.text)
   const box = await target.locator.boundingBox()
   const x = box.x + box.width / 2
   const y = box.y + box.height / 2
@@ -104,19 +103,23 @@ const tap = async (drift) => {
     (t) => [...document.querySelectorAll('.chip[data-side="ys"]')].some((e) => e.textContent.trim() === t),
     target.text,
   )
-  return { before, after, text: target.text, stillMine }
+  const onTwin = await page.evaluate(
+    (t) => [...document.querySelectorAll('.chip[data-side="ds"]')].some((e) => e.textContent.trim() === t),
+    target.text,
+  )
+  return { before, after, text: target.text, stillMine, onTwin }
 }
 
 for (const drift of [0, 1, 3]) {
-  const { before, after, text, stillMine } = await tap(drift)
+  const { before, after, text, stillMine, onTwin } = await tap(drift)
   check(
-    `a tap with ${drift}px of pointer drift gives the digital self a copy`,
-    after === before + 1,
+    `a tap with ${drift}px of pointer drift hands the chip to the digital self`,
+    after === before + 1 && onTwin === true,
     `"${text}" ${before} -> ${after}`,
   )
   check(
-    `and "${text}" stays on the participant's own side`,
-    stillMine === true,
+    `and "${text}" is no longer on the participant's own side`,
+    stillMine === false,
   )
 }
 
@@ -125,15 +128,9 @@ const revealSamples = await page.evaluate(async () => {
   const el = document.querySelector('.twin-reveal')
   const read = () => Number(getComputedStyle(el).getPropertyValue('--reveal'))
   const before = read()
-  // Hand a chip over and watch the property across the next few frames. Pick one
-  // the digital self does not already have, or the keypress is a no-op.
-  const taken = new Set(
-    [...document.querySelectorAll('.chip[data-side="ds"]')].map((e) => e.textContent.trim()),
-  )
-  const fresh = [...document.querySelectorAll('.chip[data-side="ys"]')].find(
-    (e) => !taken.has(e.textContent.trim()),
-  )
-  fresh?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  // Hand a chip over and watch the property across the next few frames.
+  const mine = document.querySelector('.chip[data-side="ys"]')
+  mine?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
   const samples = []
   for (let i = 0; i < 8; i++) {
     await new Promise((r) => setTimeout(r, 90))

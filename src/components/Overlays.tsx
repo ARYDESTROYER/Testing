@@ -328,9 +328,9 @@ export function EndCard({
             <b>{tally.left}</b>
             <span>still yours</span>
           </div>
-          {tally.removed > 0 && (
+          {tally.discarded > 0 && (
             <div className="stat">
-              <b>{tally.removed}</b>
+              <b>{tally.discarded}</b>
               <span>let go</span>
             </div>
           )}

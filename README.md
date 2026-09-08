@@ -45,39 +45,40 @@ For a real run: `npm run build && npm start`.
    random from that dimension's pool of four, so no two participants get the same
    sequence. The participant types a word or a whole phrase; each one lands on
    the canvas as a chip beside their self.
-4. **The system copies some over.** At the end of each round the system gives the
-   digital self some of the participant's attributes and says which. They are
-   **copied, not moved**: the original stays on the participant's side and a
-   second chip appears on the right, so the attribute is now held at both ends.
-   How many is left entirely to chance — anything from none of them to all of
-   them, drawn fresh each round, so a participant cannot learn the rhythm. A
-   fixed range is available instead (`random=0`) for a run that wants a steadier
-   hand.
+4. **The system takes some over.** At the end of each round the system takes some
+   of the participant's attributes for the digital self and says which. They
+   **move**: the chip leaves the participant's side and settles among the digital
+   self's, gathered with the rest of that round's batch. How many is left
+   entirely to chance — anything from none of them to all of them, drawn fresh
+   each round, so a participant cannot learn the rhythm. A fixed range is
+   available instead (`random=0`) for a run that wants a steadier hand.
 5. **The participant decides what to keep.** Chips stay draggable, throwable and
-   clickable for the whole session. Dropping one on the digital self gives it a
-   copy; dropping any chip into the "let go" well bins it — **from either side**,
+   clickable for the whole session. Dropping one on the digital self hands it
+   over; dropping any chip into the "let go" well bins it — **from either side**,
    so a participant can take something off their twin as readily as off
    themselves.
 6. **The digital self rebuilds.** It starts dark and deformed and becomes a
    replica of the static self on the left as it receives attributes. The
-   reconstruction is measured against everything ever written, so an original
-   binned before it was ever copied puts a full replica permanently out of reach.
+   reconstruction is measured against everything ever written, so an attribute
+   binned rather than handed over puts a full replica permanently out of reach.
 7. **The verdict.** Green or red, whenever the participant wants. Writing closes
    after the last round but the canvas stays live until they choose.
 
 ### The attribute table
 
-| counter        | meaning                                                        |
-| -------------- | -------------------------------------------------------------- |
-| total written  | everything the participant typed; a copy is not a second answer |
-| removed        | everything binned, from either side                             |
-| left           | still on the participant's own side                             |
-| received       | what the digital self holds                                     |
-| to be gained   | what it could still be given, ignoring what it already has      |
+| counter        | meaning                                                     |
+| -------------- | ----------------------------------------------------------- |
+| total written  | everything the participant typed                            |
+| removed        | everything that left the self: handed over, or let go of    |
+| left           | still on the participant's own side                         |
+| received       | what the digital self holds                                 |
+| to be gained   | what it could still be given                                |
 
-Because handing something over copies it, an attribute can be counted in both
-*left* and *received* at once — that is the point. *Removed* only moves when a
-chip goes in the bin.
+An attribute is in exactly one place, so *left* + *removed* is always *total
+written*. While nothing is let go of, *removed* equals *received* and *left*
+equals *to be gained* — the state the comp is drawn in. Binning is what pulls
+those pairs apart: a chip in the well left the self without reaching the twin.
+The end card names that count separately, as *let go*.
 
 ---
 
@@ -270,10 +271,6 @@ choice rather than an oversight:
 
 - **Session length.** Eight dimensions at 30 seconds is four minutes of writing.
   The notes mention five. `seconds` and `rounds` cover either.
-- **The reconstruction measure.** The digital self is complete when it holds a
-  copy of everything the participant ever wrote. If binning an original should
-  not cap that, it is one line in `reconstruction()` in `src/game/engine.ts`.
-- **The comp's numbers.** The Figma comp shows `removed 5, received 5`, which is
-  what a *move* produces. Now that handing over copies, `removed` only counts
-  what was binned, so the two columns say different things. That is deliberate;
-  say the word if the comp's reading was the intended one.
+- **The reconstruction measure.** The digital self is complete when it holds
+  everything the participant ever wrote. If binning an attribute should not cap
+  that, it is one line in `reconstruction()` in `src/game/engine.ts`.

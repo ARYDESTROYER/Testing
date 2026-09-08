@@ -1,4 +1,4 @@
-import type { Attribute, DropSide, GameEvent } from '@/lib/types'
+import { originals, type Attribute, type DropSide, type GameEvent } from '@/lib/types'
 import { DIMENSIONS, type Dimension } from '@/lib/prompts'
 import type { GameConfig } from '@/lib/config'
 import { CHIP_H, CLUSTER_GRID, CLUSTER_SPREAD, ZONE, ZONE_ANCHOR } from './layout'
@@ -211,12 +211,9 @@ export function pickSystemTransfer(
   attributes: readonly Attribute[],
   config: GameConfig,
 ): string[] {
-  // Only what the participant still holds and the digital self does not already
-  // have a copy of. The original is never taken away — it is duplicated.
-  const copied = new Set(
-    attributes.filter((a) => a.side === 'ds' && a.copyOf).map((a) => a.copyOf as string),
-  )
-  const held = attributes.filter((a) => a.side === 'ys' && !copied.has(a.id))
+  // Only what the participant still holds: taking one moves it across, so it
+  // cannot be taken twice.
+  const held = attributes.filter((a) => a.side === 'ys')
   if (!held.length) return []
 
   // How many the digital self takes. Left to chance by default: anything from
@@ -242,12 +239,12 @@ export function pickSystemTransfer(
  * a replica of the static self on the left.
  */
 export function reconstruction(attributes: readonly Attribute[]): number {
-  const written = attributes.filter((a) => !a.copyOf).length
+  const written = originals(attributes).length
   if (!written) return 0
   const received = attributes.filter((a) => a.side === 'ds').length
   // Measured against everything ever written, not everything still in play: an
-  // original the participant binned before it was copied is one the digital self
-  // can never have, so binning enough puts a full replica out of reach.
+  // attribute the participant binned is one the digital self can never have, so
+  // binning enough puts a full replica out of reach.
   return Math.min(1, received / written)
 }
 

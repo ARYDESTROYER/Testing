@@ -337,7 +337,7 @@ export function Experience() {
           allowDiscard={state.config.allowDiscard && state.phase === 'playing'}
           interactive={state.phase === 'playing' && !state.overlay}
           onMove={game.moveAttribute}
-          onCopyToDigitalSelf={(id) => game.copyToDigitalSelf(id, 'participant')}
+          onHandToDigitalSelf={(id) => game.handToDigitalSelf(id, 'participant')}
           onDiscard={game.discard}
           onDragging={game.setDragging}
         />

@@ -59,7 +59,8 @@ const SCHEMA = [
      round          INTEGER NOT NULL,
      written_at     INTEGER NOT NULL,
      side           TEXT NOT NULL,
-     -- For a chip on the digital-self side, the original it was copied from.
+     -- Historical: sessions recorded while a transfer copied rather than moved
+     -- put the original's id here. Nothing writes it now.
      copy_of        TEXT,
      transferred_at INTEGER,
      transferred_by TEXT,
@@ -111,7 +112,7 @@ async function migrateAttributeKey(db: Client): Promise<void> {
   )
 }
 
-/** Adds copy_of to a table created before transfers became copies. */
+/** Adds copy_of, so a table from either era reads the same way. */
 async function migrateCopyOf(db: Client): Promise<void> {
   const info = await db.execute(`PRAGMA table_info(attributes)`)
   if (!info.rows.length) return

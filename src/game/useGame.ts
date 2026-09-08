@@ -57,7 +57,7 @@ export interface GameApi {
   start: () => void
   submit: (text: string) => void
   moveAttribute: (id: string, x: number, y: number) => void
-  copyToDigitalSelf: (id: string, by: 'participant') => void
+  handToDigitalSelf: (id: string, by: 'participant') => void
   discard: (id: string) => void
   /** Which chip is in the participant's hand, so the system does not take it. */
   setDragging: (id: string | null) => void
@@ -235,18 +235,15 @@ export function useGame(): GameApi {
   )
 
   /**
-   * Hand an attribute to the digital self. It is COPIED, not moved: the original
-   * stays with the participant and a second chip appears on the right, so both
-   * ends hold it and either can be binned.
+   * Hand an attribute to the digital self. It MOVES: the chip leaves the
+   * participant's side and settles among the digital self's, which is where it
+   * can be binned from afterwards.
    */
-  const copyToDigitalSelf = useCallback(
+  const handToDigitalSelf = useCallback(
     (id: string, by: 'participant') => {
       const s = ref.current
       const source = s.attributes.find((a) => a.id === id)
       if (!source || source.side !== 'ys') return
-      // One copy per attribute; a second tap should do nothing.
-      const already = s.attributes.some((a) => a.side === 'ds' && a.copyOf === id)
-      if (already) return
 
       const boxes = s.attributes
         .filter((a) => a.side === 'ds')
@@ -255,10 +252,8 @@ export function useGame(): GameApi {
         group: batchRef.current,
       })
 
-      const copy: Attribute = {
+      const moved: Attribute = {
         ...source,
-        id: attributeId(),
-        copyOf: id,
         side: 'ds',
         x,
         y,
@@ -266,12 +261,12 @@ export function useGame(): GameApi {
         transferredBy: by,
       }
 
-      writerRef.current?.attribute(copy)
+      writerRef.current?.attribute(moved)
       writerRef.current?.event(
-        event('attribute_transferred', s.sessionMs, { id, copyId: copy.id, text: copy.text, by }),
+        event('attribute_transferred', s.sessionMs, { id, text: moved.text, by }),
       )
 
-      const attributes = [...s.attributes, copy]
+      const attributes = s.attributes.map((a) => (a.id === id ? moved : a))
       commit({
         ...s,
         attributes,
@@ -301,7 +296,6 @@ export function useGame(): GameApi {
           id,
           text: next.text,
           from: current.side,
-          copyOf: current.copyOf,
         }),
       )
 
@@ -404,7 +398,7 @@ export function useGame(): GameApi {
 
       if (takenIds.length) {
         const taken = new Set(takenIds)
-        const copies: Attribute[] = []
+        const handed: Attribute[] = []
         const occupied = attributes
           .filter((a) => a.side === 'ds')
           .map((a) => ({ x: a.x, y: a.y, w: chipWidth(a.text), h: CHIP_H }))
@@ -412,42 +406,40 @@ export function useGame(): GameApi {
         // Everything taken this round shares a group, so the batch arrives as a
         // batch rather than sprayed across the digital self's side.
         const batch = batchRef.current
-        for (const source of attributes) {
-          if (!taken.has(source.id)) continue
+        attributes = attributes.map((source) => {
+          if (!taken.has(source.id)) return source
           const { x, y } = placeChip(rng, 'ds', chipWidth(source.text), occupied, { group: batch })
           occupied.push({ x, y, w: chipWidth(source.text), h: CHIP_H })
-          copies.push({
+          // The attribute crosses over rather than being duplicated: it leaves
+          // the participant's side and lands on the digital self's.
+          const moved: Attribute = {
             ...source,
-            id: attributeId(),
-            copyOf: source.id,
             side: 'ds',
             x,
             y,
             transferredAt: sessionMs,
             transferredBy: 'system',
-          })
-        }
-
-        // The originals are untouched: the digital self receives a copy.
-        attributes = [...attributes, ...copies]
+          }
+          handed.push(moved)
+          return moved
+        })
 
         batchRef.current += 1
 
-        writerRef.current?.attributes(copies)
+        writerRef.current?.attributes(handed)
         writerRef.current?.event(
           event('system_transfer', sessionMs, {
             round: s.roundIndex,
             ids: takenIds,
-            copyIds: copies.map((c) => c.id),
-            texts: copies.map((c) => c.text),
+            texts: handed.map((c) => c.text),
           }),
         )
         arrivalTick += 1
 
         if (s.config.showCoachOverlays) {
-          overlay = { kind: 'transferred', ids: copies.map((c) => c.id) }
+          overlay = { kind: 'transferred', ids: handed.map((c) => c.id) }
           writerRef.current?.event(
-            event('overlay_shown', sessionMs, { kind: 'transferred', count: copies.length }),
+            event('overlay_shown', sessionMs, { kind: 'transferred', count: handed.length }),
           )
         }
       }
@@ -488,7 +480,7 @@ export function useGame(): GameApi {
     start,
     submit,
     moveAttribute,
-    copyToDigitalSelf,
+    handToDigitalSelf,
     discard,
     setDragging,
     dismissOverlay,

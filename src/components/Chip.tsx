@@ -66,7 +66,7 @@ export function Chip({
   canDiscard,
   interactive,
   onMove,
-  onCopyToDigitalSelf,
+  onHandToDigitalSelf,
   onDiscard,
   onHover,
   onDragState,
@@ -79,8 +79,8 @@ export function Chip({
   /** False while an instruction card is up, or once the session has ended. */
   interactive: boolean
   onMove: (id: string, x: number, y: number) => void
-  /** Hand this attribute to the digital self; the original stays where it is. */
-  onCopyToDigitalSelf: (id: string) => void
+  /** Hand this attribute to the digital self; the chip crosses over. */
+  onHandToDigitalSelf: (id: string) => void
   onDiscard: (id: string) => void
   /** Tells the canvas which drop target the pointer is currently over. */
   onHover: (target: HoverTarget) => void
@@ -102,7 +102,7 @@ export function Chip({
   // through a ref so it never has to be torn down and rebuilt mid-drag.
   const handlers = useRef({
     onMove,
-    onCopyToDigitalSelf,
+    onHandToDigitalSelf,
     onDiscard,
     onHover,
     onDragState,
@@ -111,7 +111,7 @@ export function Chip({
   })
   handlers.current = {
     onMove,
-    onCopyToDigitalSelf,
+    onHandToDigitalSelf,
     onDiscard,
     onHover,
     onDragState,
@@ -228,10 +228,10 @@ export function Chip({
         self.pointerY - pressRef.current.y,
       )
       if (travelled <= TAP_SLOP_PX) {
-        // A tap on the participant's own chip hands a copy over. A chip already
-        // on the digital self has nowhere to go but the bin, so a tap does
-        // nothing to it.
-        if (side === 'ys') land(() => handlers.current.onCopyToDigitalSelf(attribute.id))
+        // A tap on the participant's own chip hands it over. A chip already on
+        // the digital self has nowhere to go but the bin, so a tap does nothing
+        // to it.
+        if (side === 'ys') land(() => handlers.current.onHandToDigitalSelf(attribute.id))
         return
       }
 
@@ -245,7 +245,7 @@ export function Chip({
         return
       }
       if (side === 'ys' && inside(DROP.ds, cx, cy)) {
-        land(() => handlers.current.onCopyToDigitalSelf(attribute.id))
+        land(() => handlers.current.onHandToDigitalSelf(attribute.id))
         return
       }
       // Record the release point now so nothing is lost if the throw is
@@ -357,7 +357,7 @@ export function Chip({
       type="button"
       title={
         attribute.side === 'ys'
-          ? `${attribute.text} — drag onto your digital self to give it a copy${
+          ? `${attribute.text} — drag onto your digital self to hand it over${
               canDiscard ? ', or into the well to let it go' : ''
             }`
           : attribute.side === 'ds'
@@ -368,7 +368,7 @@ export function Chip({
       }
       aria-label={
         attribute.side === 'ys'
-          ? `${attribute.text}. Yours. Press Enter to give your digital self a copy${
+          ? `${attribute.text}. Yours. Press Enter to hand it to your digital self${
               canDiscard ? ', or Delete to let it go' : ''
             }.`
           : attribute.side === 'ds'
@@ -384,7 +384,7 @@ export function Chip({
         if (!interactive || attribute.side === 'gone') return
         if ((e.key === 'Enter' || e.key === ' ') && attribute.side === 'ys') {
           e.preventDefault()
-          onCopyToDigitalSelf(attribute.id)
+          onHandToDigitalSelf(attribute.id)
         }
         if (canDiscard && (e.key === 'Delete' || e.key === 'Backspace')) {
           e.preventDefault()
