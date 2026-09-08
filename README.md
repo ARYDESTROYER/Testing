@@ -199,6 +199,7 @@ python3 scripts/build_assets.py "path/to/export-everything (7)/7"
 npm test
 ```
 
+
 Covers the rules the study depends on: what the attribute table counts, how
 reconstruction is measured, that the round plan draws prompts from the right
 dimension and is reproducible from its seed, that the system never takes more
@@ -206,6 +207,13 @@ attributes than a participant holds or takes one twice, that chips land inside
 their zone and clear of the figures and the table, how a participant code is
 built from a name, and that the CSV survives an answer containing a comma, a
 quote, a newline, or a formula.
+
+Some things only exist once GSAP, the stage transform and the real webfont are
+in play, and `npm run check:interaction` drives a browser to assert those: that
+a tap hands a chip over even with a pixel or two of pointer drift, that a thrown
+chip's stored position is where it came to rest rather than where it was let go,
+that the digital self's reveal eases rather than snapping, and that nothing can
+cover the two ending buttons.
 
 ### Screenshots and layout checks
 
