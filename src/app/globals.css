@@ -1,0 +1,870 @@
+/* =============================================================================
+   Construct your digital twin
+   -----------------------------------------------------------------------------
+   Layout system: the Figma artboard is 4481 x 2739 design units. Every element
+   below is positioned in those units and the whole stage is scaled by a single
+   transform to fit the viewport, so what renders is a 1:1 reproduction of the
+   comp at any resolution instead of an approximation of it.
+
+   Colours, sizes, radii and shadows are taken from the Figma node tree.
+   ============================================================================ */
+
+:root {
+  --frame-w: 4481;
+  --frame-h: 2739;
+
+  /* Set by <Stage> on every resize. */
+  --s: 1;
+
+  --bg: #f1eff0;
+  --ink: #3f3d3e;
+  --line: #000000;
+  --accent: #498ca7;
+  --accent-light: #74abc2;
+  --pill: #d8e8ef;
+  --green-pill: #e0efd8;
+  --green: #4ea311;
+  --red-pill: #efd9d9;
+  --red: #c22c2c;
+
+  /* Figma DROP_SHADOW, 0/4, blur 4, spread 1, black 14%. */
+  --shadow-pill: 0 4px 4px 1px rgba(0, 0, 0, 0.14);
+  --shadow-dot: 0 1px 4px rgba(0, 0, 0, 0.25);
+
+  --font: var(--font-sora), 'Sora', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  outline: none;
+}
+
+/* -----------------------------------------------------------------------------
+   Stage
+   -------------------------------------------------------------------------- */
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  touch-action: none;
+}
+
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--frame-w) * 1px);
+  height: calc(var(--frame-h) * 1px);
+  /* translate first, then scale about the centre — grid/flex centring cannot be
+     used here because an item this much larger than its container overflows to
+     one side instead of staying centred. */
+  transform: translate(-50%, -50%) scale(var(--s));
+  transform-origin: center center;
+  /* Flat, like the comp: elements that knock a hole in the spine paint this
+     exact colour, so any gradient here would show as a patch. */
+  background: var(--bg);
+}
+
+/* Anything positioned on the artboard. */
+.abs {
+  position: absolute;
+  margin: 0;
+}
+
+/* -----------------------------------------------------------------------------
+   Type
+   -------------------------------------------------------------------------- */
+
+.t-title {
+  font-size: 96px;
+  line-height: 125.76px;
+  font-weight: 400;
+  color: var(--ink);
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.t-code {
+  font-size: 64px;
+  line-height: 80.64px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+.t-selflabel {
+  font-size: 64px;
+  line-height: 70.4px;
+  font-weight: 400;
+  text-align: center;
+  white-space: pre;
+}
+
+.t-bridge {
+  font-size: 40px;
+  line-height: 69.2px;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: center;
+  white-space: pre;
+}
+
+.t-timer {
+  font-size: 128px;
+  line-height: 161.28px;
+  font-weight: 100;
+  color: var(--ink);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.t-prompt {
+  font-size: 40px;
+  line-height: 50.4px;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* -----------------------------------------------------------------------------
+   Glass
+   -----------------------------------------------------------------------------
+   The team settled on a glass-morphic treatment for interface elements. It sits
+   on top of the comp's colours rather than replacing them: same fill, same
+   radius, same shadow, plus a blur of what is behind and a 1px top highlight.
+   -------------------------------------------------------------------------- */
+
+.glass {
+  position: relative;
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  box-shadow:
+    var(--shadow-pill),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* -----------------------------------------------------------------------------
+   Figures
+   -------------------------------------------------------------------------- */
+
+.figure-wrap {
+  position: absolute;
+  will-change: transform, filter;
+}
+
+.figure-wrap img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.pedestal {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pedestal img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}
+
+/* The digital self: a dark base with the reconstructed self revealed over it. */
+.twin-base,
+.twin-reveal {
+  position: absolute;
+  inset: 0;
+}
+
+.twin-reveal {
+  /* --reveal runs 0 -> 1 as attributes arrive; the mask wipes upward. */
+  --reveal: 0;
+  -webkit-mask-image: linear-gradient(
+    to top,
+    #000 calc(var(--reveal) * 118% - 22%),
+    transparent calc(var(--reveal) * 118%)
+  );
+  mask-image: linear-gradient(
+    to top,
+    #000 calc(var(--reveal) * 118% - 22%),
+    transparent calc(var(--reveal) * 118%)
+  );
+}
+
+.spine {
+  background: var(--line);
+}
+
+.bridge-knockout {
+  background: var(--bg);
+}
+
+/* -----------------------------------------------------------------------------
+   Attribute table
+   -------------------------------------------------------------------------- */
+
+.table {
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+
+.table-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+
+.table-title {
+  font-size: 64px;
+  line-height: 70.4px;
+  font-weight: 400;
+  text-align: center;
+  color: var(--ink);
+}
+
+.table-label {
+  font-size: 48px;
+  line-height: 52.8px;
+  font-weight: 400;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.table-value {
+  font-size: 64px;
+  line-height: 80.64px;
+  font-weight: 200;
+  color: var(--accent);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -----------------------------------------------------------------------------
+   Pills
+   -------------------------------------------------------------------------- */
+
+.pill {
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pill-start {
+  background: var(--pill);
+  color: var(--accent);
+  font-size: 36px;
+  line-height: 45.36px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition:
+    transform 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+.pill-start:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.pill-start:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.verdict {
+  border-radius: 999px;
+  font-size: 32px;
+  line-height: 40.32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  white-space: nowrap;
+  transition:
+    transform 0.4s var(--ease-out),
+    filter 0.5s var(--ease-out),
+    background-color 0.5s var(--ease-out),
+    color 0.5s var(--ease-out);
+}
+
+.verdict[data-live='false'] {
+  filter: blur(4.3px);
+  pointer-events: none;
+}
+
+.verdict-reject {
+  background: var(--red-pill);
+  color: var(--red);
+  font-weight: 400;
+}
+
+.verdict-accept {
+  background: var(--green-pill);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.verdict[data-live='true'].verdict-reject {
+  background: var(--red);
+  color: #fff;
+}
+
+.verdict[data-live='true'].verdict-accept {
+  background: var(--green);
+  color: #fff;
+}
+
+.verdict[data-live='true']:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.verdict[data-live='true']:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* -----------------------------------------------------------------------------
+   Input bar
+   -----------------------------------------------------------------------------
+   Fixed height on purpose: the study asked for a bar that never grows a second
+   line, however long the phrase is.
+   -------------------------------------------------------------------------- */
+
+.inputbar {
+  background: color-mix(in srgb, var(--pill) 82%, transparent);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.inputbar input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  font-size: 36px;
+  line-height: 45.36px;
+  font-weight: 400;
+  color: var(--ink);
+  text-align: center;
+  padding: 0 100px 0 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inputbar input::placeholder {
+  color: rgba(63, 61, 62, 0.3);
+}
+
+.inputbar input:disabled {
+  cursor: default;
+}
+
+.inputbar-send {
+  position: absolute;
+  width: 59px;
+  height: 59px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  border: 1px solid #fff;
+  box-shadow: var(--shadow-dot);
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.3s var(--ease-out),
+    background-color 0.3s var(--ease-out),
+    opacity 0.3s var(--ease-out);
+}
+
+.inputbar-send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.inputbar-send:not(:disabled):hover {
+  transform: scale(1.1);
+  background: var(--accent);
+}
+
+.inputbar-send:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+/* Round progress ring drawn around the input bar. */
+.round-ring {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.round-ring rect {
+  fill: none;
+  stroke: var(--accent-light);
+  stroke-width: 3;
+  opacity: 0.55;
+}
+
+/* -----------------------------------------------------------------------------
+   Attribute chips
+   -------------------------------------------------------------------------- */
+
+.chip-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.chip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 95px;
+  padding: 0 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  box-shadow:
+    var(--shadow-pill),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  line-height: 40.32px;
+  font-weight: 300;
+  color: #000;
+  white-space: nowrap;
+  max-width: 1000px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  will-change: transform;
+}
+
+.chip:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.chip[data-side='ds'] {
+  border-color: rgba(0, 0, 0, 0.55);
+  color: #1d2c33;
+  background: rgba(243, 249, 251, 0.84);
+}
+
+.chip[data-dragging='true'] {
+  cursor: grabbing;
+  z-index: 40;
+  box-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.chip-ghost {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Drop target halo around the digital self. */
+.drop-halo {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    rgba(116, 171, 194, 0.32) 0%,
+    rgba(116, 171, 194, 0.12) 55%,
+    rgba(116, 171, 194, 0) 72%
+  );
+}
+
+/* -----------------------------------------------------------------------------
+   Overlays: name gate, coaching modals, end card
+   -------------------------------------------------------------------------- */
+
+.scrim {
+  position: absolute;
+  /* Reaches past the artboard so the letterboxed edges dim with it. */
+  inset: -2000px;
+  background: #4e4e4e;
+  opacity: 0.71;
+}
+
+.overlay-root {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+}
+
+.name-pill {
+  border-radius: 999px;
+  background: rgba(216, 232, 239, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.name-pill input {
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  font-size: 64px;
+  line-height: 80.64px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0 60px;
+}
+
+.name-pill input::placeholder {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.name-hint {
+  font-size: 34px;
+  line-height: 44px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+
+.modal {
+  border-radius: 40px;
+  background: rgba(236, 236, 236, 0.62);
+  backdrop-filter: blur(26px) saturate(1.4);
+  -webkit-backdrop-filter: blur(26px) saturate(1.4);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 46px;
+  padding: 64px 72px;
+  text-align: center;
+}
+
+.modal-heading {
+  font-size: 44px;
+  line-height: 56px;
+  font-weight: 600;
+  color: #16181a;
+  max-width: 900px;
+}
+
+.modal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 22px 26px;
+  max-width: 1000px;
+}
+
+.modal-chip {
+  height: 95px;
+  padding: 0 40px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: var(--shadow-pill);
+  display: flex;
+  align-items: center;
+  font-size: 32px;
+  line-height: 40.32px;
+  font-weight: 300;
+  color: #000;
+  white-space: nowrap;
+  max-width: 900px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modal-chip:nth-child(even) {
+  transform: translateY(20px);
+}
+
+.pill-done {
+  height: 95px;
+  min-width: 193px;
+  padding: 0 46px;
+  border-radius: 999px;
+  background: var(--pill);
+  color: var(--accent);
+  font-size: 36px;
+  font-weight: 600;
+  box-shadow: var(--shadow-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.35s var(--ease-out);
+}
+
+.pill-done:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+/* -----------------------------------------------------------------------------
+   End card
+   -------------------------------------------------------------------------- */
+
+.endcard {
+  border-radius: 48px;
+  background: rgba(241, 239, 240, 0.82);
+  backdrop-filter: blur(30px) saturate(1.4);
+  -webkit-backdrop-filter: blur(30px) saturate(1.4);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  padding: 80px 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 34px;
+  text-align: center;
+}
+
+.endcard h1 {
+  margin: 0;
+  font-size: 76px;
+  line-height: 92px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.endcard .verdict-line {
+  font-size: 40px;
+  line-height: 54px;
+  font-weight: 600;
+}
+
+.endcard .stats {
+  display: flex;
+  gap: 72px;
+  margin-top: 8px;
+}
+
+.endcard .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.endcard .stat b {
+  font-size: 88px;
+  line-height: 100px;
+  font-weight: 200;
+  color: var(--accent);
+}
+
+.endcard .stat span {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 400;
+  color: var(--ink);
+  opacity: 0.75;
+}
+
+.endcard .code {
+  font-size: 34px;
+  font-weight: 400;
+  color: var(--ink);
+  opacity: 0.6;
+}
+
+/* -----------------------------------------------------------------------------
+   Facilitator affordances (deliberately quiet)
+   -------------------------------------------------------------------------- */
+
+.settings-toggle {
+  position: absolute;
+  right: 48px;
+  top: 48px;
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  opacity: 0.28;
+  transition: opacity 0.3s var(--ease-out);
+  z-index: 70;
+}
+
+.settings-toggle:hover {
+  opacity: 0.85;
+}
+
+.settings-panel {
+  position: absolute;
+  right: 48px;
+  top: 152px;
+  width: 940px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+  padding: 40px 44px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.settings-panel h2 {
+  margin: 0;
+  font-size: 40px;
+  line-height: 48px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: 32px;
+  line-height: 44px;
+  color: var(--ink);
+}
+
+.settings-row input[type='number'] {
+  width: 190px;
+  height: 68px;
+  border-radius: 16px;
+  background: rgba(216, 232, 239, 0.7);
+  text-align: center;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.settings-row input[type='checkbox'] {
+  width: 40px;
+  height: 40px;
+  accent-color: var(--accent);
+}
+
+.settings-note {
+  font-size: 26px;
+  line-height: 36px;
+  color: var(--ink);
+  opacity: 0.6;
+}
+
+.round-pips {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.round-pips i {
+  display: block;
+  width: 26px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(63, 61, 62, 0.18);
+  transition: background-color 0.5s var(--ease-out);
+}
+
+.round-pips i[data-on='true'] {
+  background: var(--accent-light);
+}
+
+.round-pips i[data-now='true'] {
+  background: var(--accent);
+}
+
+.dimension-tag {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-light);
+  text-align: center;
+}
+
+/* -----------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* The end card centres itself on the artboard rather than sitting at a fixed
+   top, so it stays balanced whatever the summary contains. */
+.endcard-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.endcard-center .endcard {
+  width: min(1900px, 88%);
+}

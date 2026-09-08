@@ -1,0 +1,218 @@
+'use client'
+
+import { useEffect, useLayoutEffect, useRef } from 'react'
+import gsap from 'gsap'
+import { Draggable } from 'gsap/Draggable'
+import { InertiaPlugin } from 'gsap/InertiaPlugin'
+import { MotionPathPlugin } from 'gsap/MotionPathPlugin'
+import type { Attribute, Side } from '@/lib/types'
+import { FRAME } from '@/lib/config'
+import { CHIP_H, DROP } from '@/game/layout'
+import { chipWidth } from '@/game/measure'
+
+if (typeof window !== 'undefined') {
+  gsap.registerPlugin(Draggable, InertiaPlugin, MotionPathPlugin)
+}
+
+function inside(box: { x0: number; y0: number; x1: number; y1: number }, x: number, y: number) {
+  return x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1
+}
+
+/**
+ * One attribute on the canvas.
+ *
+ * Chips stay draggable for the whole session — that was a hard requirement of
+ * the study. Dropping one on the other figure hands the attribute over; a plain
+ * click (or Enter, for keyboard) does the same thing without the drag, so the
+ * interaction never depends on fine motor control.
+ */
+export function Chip({
+  attribute,
+  spawnFrom,
+  onMove,
+  onSetSide,
+  onHover,
+}: {
+  attribute: Attribute
+  /** Where a freshly written chip flies in from, in design units. */
+  spawnFrom?: { x: number; y: number }
+  onMove: (id: string, x: number, y: number) => void
+  onSetSide: (id: string, side: Side) => void
+  /** Tells the canvas which drop target the pointer is currently over. */
+  onHover: (side: Side | null) => void
+}) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const draggableRef = useRef<Draggable | null>(null)
+  const appliedRef = useRef({ x: attribute.x, y: attribute.y })
+  const draggingRef = useRef(false)
+  const movedRef = useRef(false)
+
+  // Callbacks change every render; the Draggable is created once and reads them
+  // through a ref so it never has to be torn down and rebuilt mid-drag.
+  const handlers = useRef({ onMove, onSetSide, onHover, side: attribute.side })
+  handlers.current = { onMove, onSetSide, onHover, side: attribute.side }
+
+  /* --- entrance ---------------------------------------------------------- */
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    if (spawnFrom) {
+      gsap.set(el, { x: spawnFrom.x, y: spawnFrom.y, scale: 0.6, opacity: 0 })
+      gsap
+        .timeline()
+        .to(el, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2.2)' }, 0)
+        .to(
+          el,
+          {
+            motionPath: {
+              path: [
+                {
+                  x: (spawnFrom.x + attribute.x) / 2,
+                  y: Math.min(spawnFrom.y, attribute.y) - 220,
+                },
+                { x: attribute.x, y: attribute.y },
+              ],
+              curviness: 1.3,
+            },
+            duration: 0.95,
+            ease: 'power2.inOut',
+          },
+          0.05,
+        )
+    } else {
+      gsap.set(el, { x: attribute.x, y: attribute.y, scale: 1, opacity: 1 })
+    }
+    appliedRef.current = { x: attribute.x, y: attribute.y }
+    // Intentionally mount-only: later moves are handled by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* --- follow position changes that came from outside a drag -------------- */
+  useEffect(() => {
+    const el = ref.current
+    if (!el || draggingRef.current) return
+    const { x, y } = attribute
+    const applied = appliedRef.current
+    if (Math.abs(applied.x - x) < 0.5 && Math.abs(applied.y - y) < 0.5) return
+
+    appliedRef.current = { x, y }
+    const lift = Math.min(applied.y, y) - 300
+
+    gsap
+      .timeline()
+      .to(el, { scale: 1.12, duration: 0.18, ease: 'power2.out' }, 0)
+      .to(
+        el,
+        {
+          motionPath: {
+            path: [
+              { x: (applied.x + x) / 2, y: lift },
+              { x, y },
+            ],
+            curviness: 1.35,
+          },
+          duration: 1,
+          ease: 'power3.inOut',
+        },
+        0,
+      )
+      .to(el, { scale: 1, duration: 0.45, ease: 'back.out(2)' }, 0.65)
+  }, [attribute.x, attribute.y])
+
+  /* --- dragging ----------------------------------------------------------- */
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const width = chipWidth(attribute.text)
+
+    const [instance] = Draggable.create(el, {
+      type: 'x,y',
+      inertia: true,
+      allowContextMenu: true,
+      dragResistance: 0,
+      edgeResistance: 0.72,
+      bounds: { minX: 0, minY: 0, maxX: FRAME.width - width, maxY: FRAME.height - CHIP_H },
+      onPress() {
+        movedRef.current = false
+        gsap.to(el, { scale: 1.06, duration: 0.18, ease: 'power2.out' })
+      },
+      onDragStart() {
+        draggingRef.current = true
+        el.dataset.dragging = 'true'
+      },
+      onDrag() {
+        movedRef.current = true
+        const cx = this.x + width / 2
+        const cy = this.y + CHIP_H / 2
+        const over: Side | null = inside(DROP.ds, cx, cy)
+          ? 'ds'
+          : inside(DROP.ys, cx, cy)
+            ? 'ys'
+            : null
+        handlers.current.onHover(over === handlers.current.side ? null : over)
+      },
+      onDragEnd() {
+        draggingRef.current = false
+        delete el.dataset.dragging
+        handlers.current.onHover(null)
+        gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
+
+        const cx = this.x + width / 2
+        const cy = this.y + CHIP_H / 2
+        const side = handlers.current.side
+
+        if (side === 'ys' && inside(DROP.ds, cx, cy)) {
+          handlers.current.onSetSide(attribute.id, 'ds')
+          return
+        }
+        if (side === 'ds' && inside(DROP.ys, cx, cy)) {
+          handlers.current.onSetSide(attribute.id, 'ys')
+          return
+        }
+        appliedRef.current = { x: this.x, y: this.y }
+        handlers.current.onMove(attribute.id, this.x, this.y)
+      },
+      onRelease() {
+        if (!draggingRef.current) gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
+      },
+      onClick() {
+        // A click that never turned into a drag hands the attribute over.
+        if (movedRef.current) return
+        handlers.current.onSetSide(
+          attribute.id,
+          handlers.current.side === 'ys' ? 'ds' : 'ys',
+        )
+      },
+    })
+
+    draggableRef.current = instance
+    return () => {
+      instance.kill()
+      draggableRef.current = null
+    }
+  }, [attribute.id, attribute.text])
+
+  return (
+    <button
+      ref={ref}
+      className="chip"
+      data-side={attribute.side}
+      type="button"
+      title={
+        attribute.side === 'ys'
+          ? 'Drag onto your digital self to hand it over'
+          : 'Drag back onto your self to take it back'
+      }
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSetSide(attribute.id, attribute.side === 'ys' ? 'ds' : 'ys')
+        }
+      }}
+    >
+      {attribute.text}
+    </button>
+  )
+}

@@ -1,0 +1,165 @@
+/* The facilitator's dashboard. Same palette as the canvas, laid out for reading
+   rather than for the artboard, so it scrolls and reflows like a normal page. */
+
+.dash {
+  min-height: 100vh;
+  padding: 56px clamp(24px, 5vw, 88px) 96px;
+  background: #f1eff0;
+  color: #3f3d3e;
+  font-family: var(--font-sora), 'Sora', ui-sans-serif, system-ui, sans-serif;
+  overflow: auto;
+}
+
+html:has(.dash),
+body:has(.dash) {
+  overflow: auto;
+  height: auto;
+}
+
+.dash header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 40px;
+}
+
+.dash h1 {
+  margin: 0 0 6px;
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.dash .muted {
+  margin: 0;
+  color: rgba(63, 61, 62, 0.6);
+  font-size: 15px;
+}
+
+.dash nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dash .btn {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: #d8e8ef;
+  color: #498ca7;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 4px 4px 1px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.25s;
+}
+
+.dash .btn:hover {
+  transform: translateY(-2px);
+  background: #cfe3ec;
+}
+
+.dash .btn.ghost {
+  background: transparent;
+  box-shadow: none;
+  color: rgba(63, 61, 62, 0.65);
+}
+
+.dash .empty {
+  padding: 64px 0;
+  color: rgba(63, 61, 62, 0.55);
+  font-size: 17px;
+}
+
+.dash table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  font-size: 15px;
+}
+
+.dash th,
+.dash td {
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  white-space: nowrap;
+}
+
+.dash th {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(63, 61, 62, 0.5);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.dash tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dash tbody tr:hover {
+  background: rgba(216, 232, 239, 0.35);
+}
+
+.dash .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash .code {
+  font-weight: 700;
+  color: #498ca7;
+}
+
+.dash .tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dash .tag-accepted {
+  background: #e0efd8;
+  color: #4ea311;
+}
+
+.dash .tag-rejected {
+  background: #efd9d9;
+  color: #c22c2c;
+}
+
+.dash .tag-timeout,
+.dash .tag-open {
+  background: rgba(63, 61, 62, 0.08);
+  color: rgba(63, 61, 62, 0.65);
+}
+
+.dash .link {
+  color: #498ca7;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.dash .link:hover {
+  text-decoration: underline;
+}
+
+.dash code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 13px;
+}
