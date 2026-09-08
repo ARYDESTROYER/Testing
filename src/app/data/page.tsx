@@ -1,4 +1,4 @@
-import { listSessions } from '@/lib/db'
+import { durable, listSessions } from '@/lib/db'
 import { dashboardKey } from '@/lib/auth'
 import './dashboard.css'
 
@@ -41,6 +41,7 @@ export default async function DataPage({
   }
 
   const sessions = await listSessions()
+  const persistent = durable()
   const suffix = required ? `?key=${encodeURIComponent(key)}` : ''
   const exportSuffix = required ? `&key=${encodeURIComponent(key)}` : ''
 
@@ -50,6 +51,14 @@ export default async function DataPage({
 
   return (
     <main className="dash">
+      {!persistent && (
+        <p className="warn" role="status">
+          <b>Demo mode.</b> No database is configured, so this host is keeping sessions in
+          scratch space and will throw them away without warning. Set{' '}
+          <code>TWIN_DATABASE_URL</code> and <code>TWIN_DATABASE_AUTH_TOKEN</code> to a Turso
+          database before running a participant.
+        </p>
+      )}
       <header>
         <div>
           <h1>Digital twin sessions</h1>

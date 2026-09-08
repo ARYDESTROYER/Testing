@@ -16,6 +16,20 @@ import { participantCode } from './participants'
 let client: Client | null = null
 let ready: Promise<void> | null = null
 
+/**
+ * True on a host that gives a function a read-only filesystem and a scratch
+ * /tmp — Vercel, Lambda and the like. There a session can still be run, but the
+ * file lives on one instance and disappears with it.
+ */
+export function serverless(): boolean {
+  return Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+}
+
+/** Whether anything written now will still be there tomorrow. */
+export function durable(): boolean {
+  return Boolean(process.env.TWIN_DATABASE_URL) || !serverless()
+}
+
 function getClient(): Client {
   if (client) return client
 
@@ -23,15 +37,17 @@ function getClient(): Client {
   if (url) {
     client = createClient({ url, authToken: process.env.TWIN_DATABASE_AUTH_TOKEN })
   } else {
-    if (process.env.NODE_ENV === 'production') {
-      // On a serverless host this file lives on one instance and disappears with
-      // it, so a study run against it would lose everything.
+    // A laptop keeps the file next to the project. A serverless host cannot
+    // write there at all, so fall back to its scratch space: the canvas works
+    // and a demo can be walked through, but the data does not survive the
+    // instance, which is why the dashboard says so in as many words.
+    const dir = serverless() ? '/tmp/chi' : path.join(process.cwd(), 'data')
+    if (serverless()) {
       console.warn(
-        '[db] TWIN_DATABASE_URL is not set — writing to a local file. That is right ' +
-          'for a laptop and wrong for a hosted deployment, where the file is not durable.',
+        '[db] TWIN_DATABASE_URL is not set — writing to /tmp, which this host ' +
+          'throws away. Set it to a Turso database before running a participant.',
       )
     }
-    const dir = path.join(process.cwd(), 'data')
     mkdirSync(dir, { recursive: true })
     client = createClient({ url: `file:${path.join(dir, 'chi.db')}` })
   }

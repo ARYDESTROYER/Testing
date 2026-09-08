@@ -163,3 +163,21 @@ body:has(.dash) {
   border-radius: 6px;
   font-size: 13px;
 }
+
+.warn {
+  margin: 0 0 26px;
+  padding: 14px 18px;
+  border: 1px solid #e4c07a;
+  border-radius: 10px;
+  background: #fdf6e6;
+  color: #6b4d12;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.warn code {
+  background: #f4e6c4;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
