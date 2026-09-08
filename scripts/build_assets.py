@@ -18,11 +18,15 @@ shadow, so this does it properly:
   2. flood inward from the border through near-background pixels; whatever the
      flood cannot reach is subject, speckles included
   3. drop isolated specks of compression noise the flood stepped over
-  4. give the reachable region an alpha ramped by its distance from the
-     background, so anti-aliased edges and the shadow keep partial coverage
-  5. un-premultiply against the background so nothing is left with a pale halo
+  4. keep anything far enough from the background at its literal colour, fully
+     opaque - that is the slabs, speckles and all
+  5. treat the soft ring around them as what it physically is, a black shadow at
+     low coverage, and solve for the alpha that reproduces the original over the
+     artboard colour. Un-premultiplying instead would hand back a pale grey at
+     low alpha, which recomposites correctly on the artboard but glows on any
+     darker surface.
 
-Requires Pillow.
+Requires Pillow. numpy is optional and only sharpens the downscale.
 """
 
 from __future__ import annotations
@@ -37,11 +41,16 @@ try:
 except ImportError:  # pragma: no cover - a friendlier message than a traceback
     sys.exit("This script needs Pillow:  pip install Pillow")
 
+try:
+    import numpy as np
+except ImportError:  # optional: only the premultiplied resize wants it
+    np = None
+
 Image.MAX_IMAGE_PIXELS = None
 
 NEAR = 3  # a pixel this close to the background counts as walkable
 FLOOR = 3.0  # anything this close to the background is background
-RAMP = 26.0  # fully opaque this far from it
+RAMP = 26.0  # farther than this from it is subject, at its literal colour
 MIN_ISLAND = 200  # smaller unreachable blobs are noise, not subject
 MAX_DIM = 1200
 
@@ -137,18 +146,24 @@ def key_background(src: Path) -> Image.Image:
                 op[x, y] = (r, g, b, 255)
                 continue
 
-            a = (dist[i] - FLOOR) / RAMP
-            a = 0.0 if a < 0 else (1.0 if a > 1 else a)
-            if a <= 0.0:
+            if dist[i] <= FLOOR:
                 op[x, y] = (0, 0, 0, 0)
                 continue
+            if dist[i] >= RAMP:
+                op[x, y] = (r, g, b, 255)
+                continue
 
-            op[x, y] = (
-                _clamp((r - (1 - a) * bg[0]) / a),
-                _clamp((g - (1 - a) * bg[1]) / a),
-                _clamp((b - (1 - a) * bg[2]) / a),
-                int(round(a * 255)),
+            # Shadow: black at partial coverage. Solving
+            #   composite = a*0 + (1-a)*bg   ->   a = 1 - composite/bg
+            # per channel and taking the strongest darkening reproduces the
+            # original exactly over the artboard and stays a shadow elsewhere.
+            a = max(
+                1.0 - r / bg[0],
+                1.0 - g / bg[1],
+                1.0 - b / bg[2],
             )
+            a = 0.0 if a < 0 else (1.0 if a > 1 else a)
+            op[x, y] = (0, 0, 0, int(round(a * 255))) if a > 0 else (0, 0, 0, 0)
 
     print(f"  keyed {src.name}: background {tuple(round(v, 1) for v in bg)}")
     return out
@@ -166,10 +181,37 @@ def _clamp(v: float) -> int:
 
 
 def downscale(im: Image.Image, max_dim: int = MAX_DIM) -> Image.Image:
+    """
+    Resize with the colour premultiplied by alpha.
+
+    Resizing an RGBA image directly mixes the colour of a transparent pixel into
+    its opaque neighbours, which is how a black shadow next to a pale slab ends
+    up as a pale halo at partial alpha. Premultiplying first keeps the two from
+    bleeding into each other.
+    """
     if max(im.size) <= max_dim:
         return im
+
     s = max_dim / max(im.size)
-    return im.resize((max(1, round(im.width * s)), max(1, round(im.height * s))), Image.LANCZOS)
+    size = (max(1, round(im.width * s)), max(1, round(im.height * s)))
+
+    if np is None:
+        return im.resize(size, Image.LANCZOS)
+
+    src = np.asarray(im.convert("RGBA")).astype(np.float32)
+    a = src[..., 3:4] / 255.0
+    pre = np.concatenate([src[..., :3] * a, src[..., 3:4]], axis=2)
+    small = np.asarray(
+        Image.fromarray(np.clip(pre, 0, 255).astype(np.uint8), "RGBA").resize(size, Image.LANCZOS)
+    ).astype(np.float32)
+
+    out_a = small[..., 3:4]
+    # Divide the colour back out, and leave fully transparent pixels black
+    # rather than turning 0/0 into noise.
+    colour = np.where(out_a > 0, small[..., :3] * 255.0 / np.maximum(out_a, 1e-6), 0.0)
+    return Image.fromarray(
+        np.concatenate([np.clip(colour, 0, 255), out_a], axis=2).astype(np.uint8), "RGBA"
+    )
 
 
 def main() -> None:

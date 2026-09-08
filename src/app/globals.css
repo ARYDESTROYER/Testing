@@ -110,13 +110,16 @@ input {
    Type
    -------------------------------------------------------------------------- */
 
+/* Every letter-spacing below is the comp's own value, divided by its font size:
+   Figma sets one on almost every text node and the type reads noticeably wider
+   without them. */
 .t-title {
   font-size: 96px;
   line-height: 125.76px;
   font-weight: 400;
   color: var(--ink);
   text-align: center;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.05em; /* -4.8 at 96 */
 }
 
 .t-code {
@@ -125,7 +128,7 @@ input {
   font-weight: 700;
   color: var(--accent);
   text-align: center;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.04em; /* -2.56 at 64 */
 }
 
 .t-selflabel {
@@ -133,6 +136,7 @@ input {
   line-height: 70.4px;
   font-weight: 400;
   text-align: center;
+  letter-spacing: -0.05em; /* -3.2 at 64 */
   white-space: pre;
 }
 
@@ -142,6 +146,7 @@ input {
   font-weight: 600;
   color: var(--accent);
   text-align: center;
+  letter-spacing: -0.04em; /* -1.6 at 40 */
   white-space: pre;
 }
 
@@ -152,7 +157,7 @@ input {
   color: var(--ink);
   text-align: center;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.05em; /* -6.4 at 128 */
 }
 
 .t-prompt {
@@ -161,6 +166,7 @@ input {
   font-weight: 600;
   color: var(--accent);
   text-align: center;
+  letter-spacing: 0.01em; /* +0.4 at 40 — the one node the comp opens up */
 }
 
 /* -----------------------------------------------------------------------------
@@ -270,6 +276,7 @@ input {
   font-weight: 400;
   text-align: center;
   color: var(--ink);
+  letter-spacing: -0.05em; /* -3.2 at 64 */
 }
 
 .table-label {
@@ -277,6 +284,7 @@ input {
   line-height: 52.8px;
   font-weight: 400;
   color: var(--ink);
+  letter-spacing: -0.05em; /* -2.4 at 48 */
   white-space: nowrap;
 }
 
@@ -287,6 +295,7 @@ input {
   color: var(--accent);
   text-align: center;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em; /* -3.2 at 64 */
 }
 
 /* -----------------------------------------------------------------------------
@@ -306,7 +315,7 @@ input {
   font-size: 36px;
   line-height: 45.36px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.03em; /* -1.08 at 36 */
   transition:
     transform 0.35s var(--ease-out),
     box-shadow 0.35s var(--ease-out);
@@ -324,6 +333,7 @@ input {
   border-radius: 999px;
   font-size: 32px;
   line-height: 40.32px;
+  letter-spacing: -0.02em; /* -0.64 at 32 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -393,6 +403,7 @@ input {
   font-size: 36px;
   line-height: 45.36px;
   font-weight: 400;
+  letter-spacing: -0.03em; /* -1.08 at 36 */
   color: var(--ink);
   text-align: center;
   padding: 0 100px 0 40px;
@@ -483,8 +494,9 @@ input {
   font-size: 32px;
   line-height: 40.32px;
   font-weight: 300;
+  letter-spacing: -0.04em; /* -1.28 at 32 */
   color: #000;
-  max-width: 1150px;
+  max-width: 980px;
   overflow: hidden;
   pointer-events: auto;
   cursor: grab;
@@ -548,7 +560,7 @@ input {
   position: absolute;
   /* Reaches past the artboard so the letterboxed edges dim with it. */
   inset: -2000px;
-  background: #4e4e4e;
+  background: #4d4d4d;
   opacity: 0.71;
 }
 
@@ -574,6 +586,7 @@ input {
   font-size: 64px;
   line-height: 80.64px;
   font-weight: 600;
+  letter-spacing: -0.04em; /* -2.56 at 64 */
   color: var(--accent);
   padding: 0 60px;
 }
@@ -592,8 +605,8 @@ input {
 }
 
 .modal {
-  border-radius: 40px;
-  background: rgba(236, 236, 236, 0.62);
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.651);
   backdrop-filter: blur(26px) saturate(1.4);
   -webkit-backdrop-filter: blur(26px) saturate(1.4);
   box-shadow:
@@ -609,11 +622,12 @@ input {
 }
 
 .modal-heading {
-  font-size: 44px;
-  line-height: 56px;
+  font-size: 40px;
+  line-height: 55px;
   font-weight: 600;
+  letter-spacing: -0.04em;
   color: #16181a;
-  max-width: 900px;
+  max-width: 940px;
 }
 
 .modal-chips {
@@ -637,6 +651,7 @@ input {
   font-size: 32px;
   line-height: 40.32px;
   font-weight: 300;
+  letter-spacing: -0.04em;
   color: #000;
   white-space: nowrap;
   max-width: 900px;

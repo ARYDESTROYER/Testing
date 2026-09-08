@@ -13,7 +13,7 @@ import {
   pickSystemTransfer,
   reconstruction,
 } from '@/game/engine'
-import { CHIP_H, CHIP_MAX_W, ZONE, DROP, TABLE } from '@/game/layout'
+import { CHIP_H, CHIP_MAX_W, ZONE, ZONE_ANCHOR, DROP, TABLE } from '@/game/layout'
 
 /* -------------------------------------------------------------------------- */
 
@@ -397,6 +397,42 @@ describe('config from the URL, blank values', () => {
     }
     for (const on of ['1', 'true', 'yes', 'on']) {
       assert.equal(configFromSearch(`?coach=${on}`).showCoachOverlays, true, on)
+    }
+  })
+})
+
+describe('chips gather around their figure', () => {
+  test('the first chip on each side lands near its anchor, not at random', () => {
+    for (const side of ['ys', 'ds'] as const) {
+      const anchor = ZONE_ANCHOR[side]
+      for (let seed = 1; seed <= 30; seed++) {
+        const { x, y } = placeChip(makeRng(seed), side, 300, [])
+        const d = Math.hypot(x + 150 - anchor.x, y + CHIP_H / 2 - anchor.y)
+        assert.ok(d < 420, `${side} seed ${seed}: landed ${Math.round(d)} away from the figure`)
+      }
+    }
+  })
+
+  test('a crowd near the figure pushes later chips outward instead of stacking them', () => {
+    const rng = makeRng(77)
+    const placed: { x: number; y: number; w: number; h: number }[] = []
+    const distances: number[] = []
+    for (let i = 0; i < 10; i++) {
+      const { x, y } = placeChip(rng, 'ys', 300, placed)
+      placed.push({ x, y, w: 300, h: CHIP_H })
+      distances.push(Math.hypot(x + 150 - ZONE_ANCHOR.ys.x, y + CHIP_H / 2 - ZONE_ANCHOR.ys.y))
+    }
+    const early = distances.slice(0, 3).reduce((a, b) => a + b) / 3
+    const late = distances.slice(-3).reduce((a, b) => a + b) / 3
+    assert.ok(late > early, `later chips (${Math.round(late)}) should sit further out than the first (${Math.round(early)})`)
+  })
+
+  test('the anchors sit inside their own zones', () => {
+    for (const side of ['ys', 'ds'] as const) {
+      const z = ZONE[side]
+      const a = ZONE_ANCHOR[side]
+      assert.ok(a.x >= z.x0 && a.x <= z.x1, `${side} anchor x`)
+      assert.ok(a.y >= z.y0 && a.y <= z.y1, `${side} anchor y`)
     }
   })
 })

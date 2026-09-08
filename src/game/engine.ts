@@ -1,7 +1,7 @@
 import type { Attribute, DropSide, GameEvent } from '@/lib/types'
 import { DIMENSIONS, type Dimension } from '@/lib/prompts'
 import type { GameConfig } from '@/lib/config'
-import { CHIP_H, ZONE } from './layout'
+import { CHIP_H, ZONE, ZONE_ANCHOR } from './layout'
 
 /* -----------------------------------------------------------------------------
    Deterministic randomness
@@ -77,10 +77,14 @@ interface Placed {
 }
 
 /**
- * Scatter a chip into its side's zone, keeping it inside the zone and, where
- * possible, clear of the chips already there. Falls back to the least-crowded
- * of the sampled candidates once the canvas fills up, rather than refusing to
- * place — the study lets participants write as many attributes as they like.
+ * Scatter a chip into its side's zone.
+ *
+ * Candidates are sampled across the zone and scored: anything overlapping a chip
+ * already there is rejected, and among what is left the one nearest the figure
+ * wins. That gathers chips around their figure the way the comp does while still
+ * spreading outward as the space fills. If every candidate overlaps — which only
+ * happens once the canvas is genuinely full — the least-crowded one is used,
+ * because the study lets participants write as many attributes as they like.
  */
 export function placeChip(
   rng: Rng,
@@ -90,13 +94,16 @@ export function placeChip(
   attempts = 120,
 ): { x: number; y: number } {
   const zone = ZONE[side]
+  const anchor = ZONE_ANCHOR[side]
   const w = Math.min(width, zone.x1 - zone.x0)
   const maxX = Math.max(zone.x0, zone.x1 - w)
   const maxY = Math.max(zone.y0, zone.y1 - CHIP_H)
   const gap = 16
 
-  let best: { x: number; y: number } | null = null
-  let bestOverlap = Infinity
+  let free: { x: number; y: number } | null = null
+  let freeDistance = Infinity
+  let crowded: { x: number; y: number } | null = null
+  let leastOverlap = Infinity
 
   for (let i = 0; i < attempts; i++) {
     const x = zone.x0 + rng() * (maxX - zone.x0)
@@ -109,14 +116,21 @@ export function placeChip(
       if (dx > 0 && dy > 0) overlap += dx * dy
     }
 
-    if (overlap === 0) return { x, y }
-    if (overlap < bestOverlap) {
-      bestOverlap = overlap
-      best = { x, y }
+    if (overlap === 0) {
+      const dx = x + w / 2 - anchor.x
+      const dy = y + CHIP_H / 2 - anchor.y
+      const distance = dx * dx + dy * dy
+      if (distance < freeDistance) {
+        freeDistance = distance
+        free = { x, y }
+      }
+    } else if (overlap < leastOverlap) {
+      leastOverlap = overlap
+      crowded = { x, y }
     }
   }
 
-  return best ?? { x: zone.x0, y: zone.y0 }
+  return free ?? crowded ?? { x: zone.x0, y: zone.y0 }
 }
 
 /* -----------------------------------------------------------------------------

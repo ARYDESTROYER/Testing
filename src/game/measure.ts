@@ -11,6 +11,9 @@ import { CHIP_H, CHIP_MAX_W } from './layout'
 const CHIP_PADDING_X = 40
 const CHIP_BORDER = 1
 const CHIP_FONT = '300 32px "Sora", ui-sans-serif, system-ui, sans-serif'
+/** The comp sets -1.28 at 32px; canvas measureText cannot apply it, so it is
+ *  subtracted per character afterwards. */
+const CHIP_LETTER_SPACING = -1.28
 
 let ctx: CanvasRenderingContext2D | null | undefined
 
@@ -26,7 +29,8 @@ export function chipWidth(text: string): number {
   const c = context()
   // 17.4px per character is Sora Light 32px measured over the study's own
   // example phrases; it is only ever the fallback for a server render.
-  const textW = c ? c.measureText(text).width : text.length * 17.4
+  const textW =
+    (c ? c.measureText(text).width : text.length * 17.4) + text.length * CHIP_LETTER_SPACING
   return Math.min(CHIP_MAX_W, Math.ceil(textW) + CHIP_PADDING_X * 2 + CHIP_BORDER * 2)
 }
 

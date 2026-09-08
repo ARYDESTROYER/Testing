@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import { FRAME } from '@/lib/config'
 import { NAME_PILL, centerX } from '@/game/layout'
 import type { Attribute, EndReason, Tally } from '@/lib/types'
 
@@ -99,7 +98,8 @@ export function NameGate({
    something.
    -------------------------------------------------------------------------- */
 
-const MODAL = { w: 1090, h: 524 }
+/** Measured off the exported layer: x=1650, y=1229, 1089 x 526. */
+const MODAL = { x: 1650, y: 1229, w: 1089, h: 526 }
 
 export function CoachModal({
   kind,
@@ -171,12 +171,7 @@ export function CoachModal({
       <div
         ref={panelRef}
         className="abs modal"
-        style={{
-          left: centerX(MODAL.w),
-          top: (FRAME.height - MODAL.h) / 2 - 60,
-          width: MODAL.w,
-          minHeight: MODAL.h,
-        }}
+        style={{ left: MODAL.x, top: MODAL.y, width: MODAL.w, minHeight: MODAL.h }}
       >
         <div className="modal-heading" style={{ whiteSpace: 'pre-line' }}>
           {heading}

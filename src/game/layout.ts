@@ -48,24 +48,29 @@ export const DROP_CENTER = {
  * attributes accumulate.
  */
 export const ZONE = {
-  ys: { x0: 220, y0: 620, x1: 1400, y1: 1980 },
-  ds: { x0: 3060, y0: 620, x1: 4240, y1: 1980 },
+  ys: { x0: 420, y0: 620, x1: 1420, y1: 1980 },
+  ds: { x0: 3050, y0: 620, x1: 4050, y1: 1980 },
+} as const
+
+/**
+ * Chips gather around the figure they belong to rather than filling their zone
+ * evenly, which is how the comp reads. Placement scores candidates by distance
+ * from this point and only spreads outward as the space nearest it fills up.
+ */
+export const ZONE_ANCHOR = {
+  ys: { x: 1360, y: 1300 },
+  ds: { x: 3110, y: 1300 },
 } as const
 
 export const CHIP_H = 95
-export const CHIP_MAX_W = 1150
+export const CHIP_MAX_W = 980
 
 export const TABLE = { x: 1677, y: 254, w: 1036, h: 462, ruleY: 124 }
 
-/**
- * Column offsets inside the table, from its top-left corner. Sora renders a
- * touch wider in a browser than Figma measured it, so the value columns get a
- * few units more room than the comp gives them; without it "to be gained:"
- * runs into its own number.
- */
+/** Column offsets inside the table, from its top-left corner, from the comp. */
 export const TABLE_GRID = {
-  labelCols: [65, 556],
-  valueCols: [376, 876],
+  labelCols: [65, 564],
+  valueCols: [348, 847],
   rowTops: [169, 262, 355],
   valueOffset: -9,
 }
