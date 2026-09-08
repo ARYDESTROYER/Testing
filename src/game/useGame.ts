@@ -59,6 +59,8 @@ export interface GameApi {
   moveAttribute: (id: string, x: number, y: number) => void
   setSide: (id: string, side: DropSide, by: 'participant') => void
   discard: (id: string) => void
+  /** Which chip is in the participant's hand, so the system does not take it. */
+  setDragging: (id: string | null) => void
   dismissOverlay: () => void
   finish: (reason: EndReason) => void
 }
@@ -101,6 +103,9 @@ export function useGame(): GameApi {
   const rngRef = useRef<Rng>(makeRng(1))
   const writerRef = useRef<SessionWriter | null>(null)
   const coachShownRef = useRef(false)
+  /** begin() runs once per page: a second one would mint a second participant. */
+  const beganRef = useRef(false)
+  const draggingIdRef = useRef<string | null>(null)
   const rafRef = useRef<number | null>(null)
   const lastTsRef = useRef<number | null>(null)
   /** performance.now() at START. The session clock is measured against it. */
@@ -114,6 +119,8 @@ export function useGame(): GameApi {
 
   const begin = useCallback(
     async (name: string, config: GameConfig) => {
+      if (beganRef.current) return
+      beganRef.current = true
       commit({ ...ref.current, busy: true, error: null })
       try {
         const session = await createSession(name, config)
@@ -121,6 +128,7 @@ export function useGame(): GameApi {
         const rng = makeRng(seed)
         rngRef.current = rng
 
+        writerRef.current?.dispose()
         const writer = new SessionWriter(session.id)
         writerRef.current = writer
         writer.event(event('session_start', 0, { code: session.code, seed, config }))
@@ -134,6 +142,8 @@ export function useGame(): GameApi {
           busy: false,
         })
       } catch (err) {
+        // Let them try again; nothing was created.
+        beganRef.current = false
         commit({
           ...ref.current,
           busy: false,
@@ -287,6 +297,10 @@ export function useGame(): GameApi {
     [commit],
   )
 
+  const setDragging = useCallback((id: string | null) => {
+    draggingIdRef.current = id
+  }, [])
+
   const dismissOverlay = useCallback(() => {
     const s = ref.current
     if (!s.overlay) return
@@ -366,7 +380,13 @@ export function useGame(): GameApi {
       let arrivalTick = s.arrivalTick
 
       const due = completed % s.config.transferEveryNRounds === 0
-      const takenIds = due ? pickSystemTransfer(rng, attributes, s.config) : []
+      // A chip in the participant's hand is not the system's to take: pulling it
+      // away mid-drag would leave the drag writing a stale side or position back
+      // over the transfer.
+      const takeable = draggingIdRef.current
+        ? attributes.filter((a) => a.id !== draggingIdRef.current)
+        : attributes
+      const takenIds = due ? pickSystemTransfer(rng, takeable, s.config) : []
 
       if (takenIds.length) {
         const taken = new Set(takenIds)
@@ -447,6 +467,7 @@ export function useGame(): GameApi {
     moveAttribute,
     setSide,
     discard,
+    setDragging,
     dismissOverlay,
     finish,
   }

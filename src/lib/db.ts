@@ -51,7 +51,7 @@ const SCHEMA = [
      config       TEXT NOT NULL
    )`,
   `CREATE TABLE IF NOT EXISTS attributes (
-     id             TEXT PRIMARY KEY,
+     id             TEXT NOT NULL,
      session_id     TEXT NOT NULL,
      text           TEXT NOT NULL,
      dimension      TEXT NOT NULL,
@@ -62,7 +62,10 @@ const SCHEMA = [
      transferred_at INTEGER,
      transferred_by TEXT,
      x              REAL NOT NULL,
-     y              REAL NOT NULL
+     y              REAL NOT NULL,
+     -- Scoped to the session. A bare id as the key let one participant's chip
+     -- upsert over another's row when two machines shared a database.
+     PRIMARY KEY (session_id, id)
    )`,
   `CREATE TABLE IF NOT EXISTS events (
      id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,10 +85,36 @@ const SCHEMA = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_events_seq ON events(session_id, seq)`,
 ]
 
+/**
+ * Earlier databases keyed attributes on the id alone. Rebuild those in place so
+ * an existing study's data survives the change rather than needing a re-import.
+ */
+async function migrateAttributeKey(db: Client): Promise<void> {
+  const existing = await db.execute(
+    `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'attributes'`,
+  )
+  const sql = existing.rows.length ? String(existing.rows[0].sql ?? '') : ''
+  if (!sql || /PRIMARY KEY\s*\(\s*session_id/i.test(sql)) return
+
+  console.warn('[db] rebuilding the attributes table on a per-session key')
+  await db.execute(`ALTER TABLE attributes RENAME TO attributes_old`)
+  await db.execute(SCHEMA[1])
+  await db.execute(
+    `INSERT OR IGNORE INTO attributes
+       (id, session_id, text, dimension, prompt, round, written_at, side,
+        transferred_at, transferred_by, x, y)
+     SELECT id, session_id, text, dimension, prompt, round, written_at, side,
+            transferred_at, transferred_by, x, y
+     FROM attributes_old`,
+  )
+  await db.execute(`DROP TABLE attributes_old`)
+}
+
 function init(): Promise<void> {
   if (!ready) {
     const db = getClient()
     ready = (async () => {
+      await migrateAttributeKey(db)
       for (const stmt of SCHEMA) await db.execute(stmt)
     })().catch((err) => {
       // Let the next call retry rather than caching a rejected promise forever.
@@ -223,7 +252,7 @@ export async function saveAttributes(id: string, attributes: Attribute[]): Promi
       sql: `INSERT INTO attributes
               (id, session_id, text, dimension, prompt, round, written_at, side, transferred_at, transferred_by, x, y)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(session_id, id) DO UPDATE SET
               side = excluded.side,
               transferred_at = excluded.transferred_at,
               transferred_by = excluded.transferred_by,

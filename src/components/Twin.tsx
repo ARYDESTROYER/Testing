@@ -34,6 +34,13 @@ export function Twin({
   const displaceRef = useRef<SVGFEDisplacementMapElement>(null)
   const haloRef = useRef<HTMLDivElement>(null)
   const ysRef = useRef<HTMLDivElement>(null)
+  /**
+   * The reveal is animated, not rendered. React writing --reveal in its commit
+   * would land the final value before the tween ever sampled a start, so the
+   * 1.5s wipe would happen in one frame; this ref is the only thing that knows
+   * where the tween is starting from.
+   */
+  const revealValueRef = useRef(0)
 
   /* Ambient life: a slow, offset bob on each figure. Skipped outright when the
      viewer asks for reduced motion, and torn down if they ask for it mid-session
@@ -88,8 +95,7 @@ export function Twin({
 
   /* Reconstruction: mask height, warp amount and colour all follow `reveal`. */
   useEffect(() => {
-    const target = { v: gsap.getProperty(revealRef.current, '--reveal') as number }
-    const proxy = { v: Number.isFinite(target.v) ? target.v : 0 }
+    const proxy = { v: revealValueRef.current }
 
     const tween = gsap.to(proxy, {
       v: reveal,
@@ -97,6 +103,7 @@ export function Twin({
       ease: 'power3.out',
       onUpdate: () => {
         const v = proxy.v
+        revealValueRef.current = v
         revealRef.current?.style.setProperty('--reveal', String(v))
         if (displaceRef.current) {
           displaceRef.current.setAttribute('scale', String(DEFORM_MAX * (1 - v)))
@@ -117,6 +124,11 @@ export function Twin({
       tween.kill()
     }
   }, [reveal])
+
+  // Seeded once, then owned by the tween above.
+  useEffect(() => {
+    revealRef.current?.style.setProperty('--reveal', '0')
+  }, [])
 
   /* Arrival: a pulse through the figure and a ripple of extra warp. */
   useEffect(() => {
@@ -233,11 +245,7 @@ export function Twin({
         <div className="twin-base">
           <img src="/assets/figure-dark.png" alt="Your digital self" />
         </div>
-        <div
-          ref={revealRef}
-          className="twin-reveal"
-          style={{ ['--reveal' as string]: String(reveal) }}
-        >
+        <div ref={revealRef} className="twin-reveal">
           <img src="/assets/figure-light.png" alt="" />
         </div>
       </div>

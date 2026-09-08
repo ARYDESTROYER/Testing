@@ -351,6 +351,7 @@ export function Experience() {
           onMove={game.moveAttribute}
           onSetSide={(id, side) => game.setSide(id, side, 'participant')}
           onDiscard={game.discard}
+          onDragging={game.setDragging}
         />
       )}
 

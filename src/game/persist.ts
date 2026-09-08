@@ -12,6 +12,12 @@ import type { GameConfig } from '@/lib/config'
  */
 
 const FLUSH_MS = 1500
+/**
+ * A stalled request would otherwise hold `inFlight` forever and every answer
+ * after it would queue up and never be sent. A half-open socket after a network
+ * change can hang for minutes; this bounds it to one flush interval's worth.
+ */
+const SYNC_TIMEOUT_MS = 10_000
 /** How hard to try to land the ending, which is the study's primary outcome. */
 const END_ATTEMPTS = 5
 
@@ -99,6 +105,7 @@ export class SessionWriter {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
       })
       // fetch only rejects on a network failure, so a 500 would otherwise look
       // like a successful write and the batch would be thrown away.
@@ -137,7 +144,10 @@ export class SessionWriter {
 
   async start(): Promise<void> {
     try {
-      await fetch(`/api/session/${encodeURIComponent(this.sessionId)}/start`, { method: 'POST' })
+      await fetch(`/api/session/${encodeURIComponent(this.sessionId)}/start`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
+      })
     } catch {
       // Only stamps started_at; the ending and the attributes are what matter.
     }
@@ -156,6 +166,7 @@ export class SessionWriter {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ reason, durationMs }),
+          signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
         })
         if (res.ok) return true
       } catch {

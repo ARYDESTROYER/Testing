@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { FRAME } from '@/lib/config'
 import { refreshChipFont } from '@/game/measure'
+import { setStageScale } from '@/game/stageScale'
 
 /**
  * Scales the 4481 x 2739 artboard to fit the viewport with one transform, so
@@ -38,6 +39,7 @@ export function Stage({
     const apply = () => {
       const s = Math.min(window.innerWidth / FRAME.width, window.innerHeight / FRAME.height)
       host.style.setProperty('--s', String(s))
+      setStageScale(s)
       if (scaleRef) scaleRef.current = s
       setTooNarrow(s < MIN_USABLE_SCALE)
     }

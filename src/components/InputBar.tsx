@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { INPUT, centerX } from '@/game/layout'
 
+/** The rect's declared pathLength; the dash array is expressed in these units. */
+const RING_LENGTH = 1000
+
 /**
  * The one place a participant writes.
  *
@@ -33,14 +36,15 @@ export function InputBar({
     if (!disabled) inputRef.current?.focus()
   }, [disabled])
 
+  // The rect declares pathLength=1000, which is what strokeDasharray and
+  // strokeDashoffset are then measured in. Asking for getTotalLength() instead
+  // returned the real geometric perimeter, so the dash ran out well before the
+  // round did — the ring read empty at about 56% of the time.
   useEffect(() => {
     const ring = ringRef.current
     if (!ring) return
-    const total = ring.getTotalLength?.() ?? 0
-    if (!total) return
-    ring.style.strokeDasharray = String(total)
     gsap.to(ring, {
-      strokeDashoffset: total * (1 - roundProgress),
+      strokeDashoffset: RING_LENGTH * (1 - roundProgress),
       duration: 0.3,
       ease: 'none',
       overwrite: true,
@@ -85,9 +89,9 @@ export function InputBar({
           width={INPUT.w + 9}
           height={INPUT.h + 9}
           rx={(INPUT.h + 9) / 2}
-          pathLength={1000}
-          strokeDasharray={1000}
-          strokeDashoffset={1000}
+          pathLength={RING_LENGTH}
+          strokeDasharray={RING_LENGTH}
+          strokeDashoffset={RING_LENGTH}
         />
       </svg>
 

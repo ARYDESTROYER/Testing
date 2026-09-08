@@ -26,6 +26,8 @@ export function NameGate({
   const rootRef = useRef<HTMLDivElement>(null)
   const pillRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  /** A second Enter while the fade is running would mint a second participant. */
+  const sentRef = useRef(false)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -40,11 +42,13 @@ export function NameGate({
   }, [])
 
   const submit = () => {
-    if (!name.trim() || busy) return
+    if (!name.trim() || busy || sentRef.current) return
+    sentRef.current = true
     gsap.to(rootRef.current, {
       opacity: 0,
       duration: 0.55,
       ease: 'power2.inOut',
+      overwrite: true,
       onComplete: () => onSubmit(name),
     })
   }

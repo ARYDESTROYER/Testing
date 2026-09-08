@@ -18,6 +18,7 @@ export function ChipLayer({
   onMove,
   onSetSide,
   onDiscard,
+  onDragging,
 }: {
   attributes: Attribute[]
   allowDiscard: boolean
@@ -25,6 +26,8 @@ export function ChipLayer({
   onMove: (id: string, x: number, y: number) => void
   onSetSide: (id: string, side: DropSide) => void
   onDiscard: (id: string) => void
+  /** The id of the chip in hand, or null. */
+  onDragging: (id: string | null) => void
 }) {
   const seen = useRef<Set<string>>(new Set())
   const mounted = useRef(false)
@@ -124,7 +127,10 @@ export function ChipLayer({
             onSetSide={onSetSide}
             onDiscard={onDiscard}
             onHover={setHover}
-            onDragState={setDragging}
+            onDragState={(active) => {
+              setDragging(active)
+              onDragging(active ? a.id : null)
+            }}
           />
         )
       })}

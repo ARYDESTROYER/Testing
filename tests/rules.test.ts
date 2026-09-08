@@ -12,6 +12,7 @@ import {
   placeChip,
   pickSystemTransfer,
   reconstruction,
+  attributeId,
 } from '@/game/engine'
 import { CHIP_H, CHIP_MAX_W, ZONE, ZONE_ANCHOR, DROP, TABLE } from '@/game/layout'
 
@@ -491,5 +492,19 @@ describe('a configured minimum of zero', () => {
     assert.ok(counts.has(0), 'never drew zero')
     assert.ok([...counts].some((n) => n > 0), 'never drew anything')
     assert.ok(Math.max(...counts) <= 3, `drew ${Math.max(...counts)}`)
+  })
+})
+
+describe('attribute ids', () => {
+  test('do not collide, even minted back to back in the same millisecond', () => {
+    const ids = new Set(Array.from({ length: 5000 }, () => attributeId()))
+    assert.equal(ids.size, 5000)
+  })
+
+  test('carry entropy, so two machines against one database cannot clash', () => {
+    // The primary key is global rather than per-session, so a timestamp and a
+    // per-tab counter alone would let one participant overwrite another's row.
+    const id = attributeId()
+    assert.match(id, /-[a-z0-9]{6,}$/i, id)
   })
 })

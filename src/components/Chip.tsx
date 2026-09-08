@@ -9,6 +9,7 @@ import type { Attribute, DropSide } from '@/lib/types'
 import { FRAME } from '@/lib/config'
 import { CHIP_H, DISCARD, DROP } from '@/game/layout'
 import { chipWidth } from '@/game/measure'
+import { screenToDesign } from '@/game/stageScale'
 
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(Draggable, InertiaPlugin, MotionPathPlugin)
@@ -26,6 +27,30 @@ const DISCARD_BOX = {
 }
 
 export type HoverTarget = DropSide | 'discard' | null
+
+/**
+ * How far the pointer may travel, in SCREEN pixels, and still count as a tap.
+ *
+ * This has to be measured in screen pixels rather than design units. GSAP
+ * Draggable converts the pointer into the element's local space before applying
+ * its own dead zone, so on a stage scaled to 0.4 its default of 2 "pixels" is
+ * really 0.8 of a screen pixel: one pixel of trackpad drift or the wobble of a
+ * finger on a touchscreen starts a drag, and Draggable then suppresses its own
+ * click entirely. Deciding here, from the pointer's page position, is the only
+ * way the tap survives.
+ */
+const TAP_SLOP_PX = 7
+
+/**
+ * What `settle` needs off the Draggable. GSAP types the callbacks' `this` as
+ * the vars object rather than the instance, so the call sites narrow to this.
+ */
+interface Released {
+  x: number
+  y: number
+  pointerX: number
+  pointerY: number
+}
 
 /**
  * One attribute on the canvas.
@@ -65,8 +90,11 @@ export function Chip({
   const draggableRef = useRef<Draggable | null>(null)
   const appliedRef = useRef({ x: attribute.x, y: attribute.y })
   const draggingRef = useRef(false)
-  const movedRef = useRef(false)
-  /** Set when a drag ended on a drop target, so the throw does not overwrite it. */
+  /** Where the pointer went down, in page pixels. */
+  const pressRef = useRef({ x: 0, y: 0 })
+  /** One outcome per press, whichever callback gets there first. */
+  const settledRef = useRef(false)
+  /** Set when a press ended on a drop target, so the throw does not overwrite it. */
   const landedRef = useRef(false)
 
   // Callbacks change every render; the Draggable is created once and reads them
@@ -167,16 +195,79 @@ export function Chip({
 
     const width = chipWidth(attribute.text)
 
+    /**
+     * One outcome per press: a tap hands the attribute over, a drag is hit
+     * tested where the participant let go, and anything else is a move.
+     */
+    const settle = (self: Released) => {
+      if (settledRef.current) return
+      settledRef.current = true
+
+      const wasDragging = draggingRef.current
+      draggingRef.current = false
+      delete el.dataset.dragging
+      if (wasDragging) {
+        handlers.current.onHover(null)
+        handlers.current.onDragState(false)
+        gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
+      }
+
+      const side = handlers.current.side
+      if (side === 'gone') return
+
+      // A drop takes over the chip's position, so the throw must not report one
+      // afterwards; the flight tween overwrites the inertia tween itself.
+      const land = (fn: () => void) => {
+        landedRef.current = true
+        fn()
+      }
+
+      const travelled = Math.hypot(
+        self.pointerX - pressRef.current.x,
+        self.pointerY - pressRef.current.y,
+      )
+      if (travelled <= TAP_SLOP_PX) {
+        land(() => handlers.current.onSetSide(attribute.id, side === 'ys' ? 'ds' : 'ys'))
+        return
+      }
+
+      // The hit test uses where the participant let go, which is what they
+      // aimed at — not where the throw eventually settles.
+      const cx = self.x + width / 2
+      const cy = self.y + CHIP_H / 2
+
+      if (handlers.current.canDiscard && inside(DISCARD_BOX, cx, cy)) {
+        land(() => handlers.current.onDiscard(attribute.id))
+        return
+      }
+      if (side === 'ys' && inside(DROP.ds, cx, cy)) {
+        land(() => handlers.current.onSetSide(attribute.id, 'ds'))
+        return
+      }
+      if (side === 'ds' && inside(DROP.ys, cx, cy)) {
+        land(() => handlers.current.onSetSide(attribute.id, 'ys'))
+        return
+      }
+      // Record the release point now so nothing is lost if the throw is
+      // interrupted; onThrowComplete corrects it to where it settles.
+      appliedRef.current = { x: self.x, y: self.y }
+      handlers.current.onMove(attribute.id, self.x, self.y)
+    }
+
     const [instance] = Draggable.create(el, {
       type: 'x,y',
+      // Draggable measures this in the element's local space, so it has to be
+      // converted from the screen pixels a person actually moves.
+      minimumMovement: Math.min(60, Math.max(2, screenToDesign(TAP_SLOP_PX))),
       inertia: true,
       allowContextMenu: true,
       dragResistance: 0,
       edgeResistance: 0.72,
       bounds: { minX: 0, minY: 0, maxX: FRAME.width - width, maxY: FRAME.height - CHIP_H },
       onPress() {
-        movedRef.current = false
+        settledRef.current = false
         landedRef.current = false
+        pressRef.current = { x: this.pointerX, y: this.pointerY }
         gsap.to(el, { scale: 1.06, duration: 0.18, ease: 'power2.out' })
       },
       onDragStart() {
@@ -185,7 +276,6 @@ export function Chip({
         handlers.current.onDragState(true)
       },
       onDrag() {
-        movedRef.current = true
         const cx = this.x + width / 2
         const cy = this.y + CHIP_H / 2
         let over: HoverTarget = null
@@ -195,61 +285,29 @@ export function Chip({
         handlers.current.onHover(over === handlers.current.side ? null : over)
       },
       onDragEnd() {
-        draggingRef.current = false
-        delete el.dataset.dragging
-        handlers.current.onHover(null)
-        handlers.current.onDragState(false)
-        gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
-
-        // The hit test uses where the participant let go, which is what they
-        // aimed at — not where the throw eventually settles.
-        const cx = this.x + width / 2
-        const cy = this.y + CHIP_H / 2
-        const side = handlers.current.side
-
-        // A drop takes over the chip's position, so the throw must not report
-        // one afterwards; the flight tween overwrites the inertia tween itself.
-        const land = (fn: () => void) => {
-          landedRef.current = true
-          fn()
-        }
-
-        if (handlers.current.canDiscard && inside(DISCARD_BOX, cx, cy)) {
-          land(() => handlers.current.onDiscard(attribute.id))
-          return
-        }
-        if (side === 'ys' && inside(DROP.ds, cx, cy)) {
-          land(() => handlers.current.onSetSide(attribute.id, 'ds'))
-          return
-        }
-        if (side === 'ds' && inside(DROP.ys, cx, cy)) {
-          land(() => handlers.current.onSetSide(attribute.id, 'ys'))
-          return
-        }
-        // Record the release point now so nothing is lost if the throw is
-        // interrupted; onThrowComplete corrects it to where it settles.
-        appliedRef.current = { x: this.x, y: this.y }
-        handlers.current.onMove(attribute.id, this.x, this.y)
+        settle(this as unknown as Released)
+      },
+      onRelease() {
+        // Fires for a press that never became a drag, which is the tap case,
+        // and again after a drag; `settledRef` keeps it to one outcome.
+        settle(this as unknown as Released)
+        if (!draggingRef.current) gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
       },
       onThrowComplete() {
         // Inertia carries the chip on after the pointer is released, so the
-        // position recorded at release is not where it ends up.
+        // position recorded at release is not where it ends up. Read the
+        // element rather than the Draggable: its own x/y are the values from
+        // the drag, not from the throw that followed it.
         if (landedRef.current) {
           landedRef.current = false
           return
         }
         if (handlers.current.side === 'gone') return
-        appliedRef.current = { x: this.x, y: this.y }
-        handlers.current.onMove(attribute.id, this.x, this.y)
-      },
-      onRelease() {
-        if (!draggingRef.current) gsap.to(el, { scale: 1, duration: 0.3, ease: 'back.out(2)' })
-      },
-      onClick() {
-        // A click that never turned into a drag hands the attribute over.
-        if (movedRef.current) return
-        if (handlers.current.side === 'gone') return
-        handlers.current.onSetSide(attribute.id, handlers.current.side === 'ys' ? 'ds' : 'ys')
+        const x = gsap.getProperty(el, 'x') as number
+        const y = gsap.getProperty(el, 'y') as number
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return
+        appliedRef.current = { x, y }
+        handlers.current.onMove(attribute.id, x, y)
       },
     })
 

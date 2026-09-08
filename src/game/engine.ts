@@ -186,9 +186,19 @@ export function reconstruction(attributes: readonly Attribute[]): number {
 
 let seq = 0
 
+/**
+ * Attribute ids are the table's primary key, which is global rather than
+ * per-session, so a timestamp and a per-tab counter are not enough: two
+ * participants running on two machines against one database could mint the same
+ * id in the same millisecond and one answer would overwrite the other.
+ */
 export function attributeId(): string {
   seq += 1
-  return `a${Date.now().toString(36)}${seq.toString(36)}`
+  const entropy =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10)
+  return `a${Date.now().toString(36)}${seq.toString(36)}-${entropy}`
 }
 
 export function event(
