@@ -4,7 +4,16 @@
  * here so the comp stays the single source of truth.
  */
 
-export const CX = 2195 // the vertical spine: the axis the whole comp centres on
+/**
+ * The vertical spine: the axis the whole comp centres on.
+ *
+ * The comp itself is a hair inconsistent about it — the table and the START
+ * pill land on 2195, the timer on 2181, the input bar and the prompt on 2206.5
+ * — which reads as Figma nudging rather than intent. Everything here is centred
+ * on one axis instead; a visible misalignment of a few units between the timer
+ * and the bar beneath it would look like a mistake, not like the drawing.
+ */
+export const CX = 2195
 
 export const FIGURE = { w: 313, h: 459 }
 export const PEDESTAL = { w: 750, h: 750 }

@@ -8,6 +8,8 @@ over. The session ends when they decide: **"yes my DS is me!"** or **"I don't
 feel like myself anymore."** Everything they write, move, hand over, or let go
 of is recorded.
 
+![The canvas mid-session](docs/canvas.png)
+
 ---
 
 ## Running it
@@ -228,6 +230,27 @@ before trusting it with a participant.
 The artboard is wide, so on a narrow screen the canvas scales down to fit and
 the build says so rather than letting a session run on something unusable. Use a
 laptop or larger.
+
+---
+
+## Where this departs from the comp, on purpose
+
+Everything else is the comp's own numbers. These four are not, and each is a
+choice rather than an oversight:
+
+- **One centre line.** The comp centres the table and START on 2195, the timer
+  on 2181, and the input bar and prompt on 2206.5. Reproducing three different
+  axes would read as a misalignment; everything sits on 2195.
+- **START disappears once the session begins.** The comp leaves the pill drawn
+  in every state. A live-looking button that does nothing is worse than no
+  button.
+- **The two endings are inert until a session is running,** and the comp's blur
+  on the reject pill is not reproduced — it is on one pill and not the other,
+  which reads as a leftover. The pastel-versus-saturated difference already says
+  "not yet".
+- **Two things the comp does not have:** the participant code sits quietly in
+  the top-left during play so the facilitator can see it, and the current
+  dimension is named above the prompt.
 
 ---
 
