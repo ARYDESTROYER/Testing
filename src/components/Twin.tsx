@@ -35,8 +35,16 @@ export function Twin({
   const haloRef = useRef<HTMLDivElement>(null)
   const ysRef = useRef<HTMLDivElement>(null)
 
-  /* Ambient life: a slow, offset bob on each figure. */
+  /* Ambient life: a slow, offset bob on each figure. Skipped outright when the
+     viewer asks for reduced motion — an endless loop run at speed is worse than
+     no loop at all. */
   useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return
+    }
     const ctx = gsap.context(() => {
       gsap.to(ysRef.current, {
         y: -9,

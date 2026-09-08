@@ -48,12 +48,12 @@ export const DROP_CENTER = {
  * attributes accumulate.
  */
 export const ZONE = {
-  ys: { x0: 380, y0: 620, x1: 1400, y1: 1980 },
-  ds: { x0: 3090, y0: 620, x1: 4110, y1: 1980 },
+  ys: { x0: 220, y0: 620, x1: 1400, y1: 1980 },
+  ds: { x0: 3060, y0: 620, x1: 4240, y1: 1980 },
 } as const
 
 export const CHIP_H = 95
-export const CHIP_MAX_W = 1000
+export const CHIP_MAX_W = 1150
 
 export const TABLE = { x: 1677, y: 254, w: 1036, h: 462, ruleY: 124 }
 

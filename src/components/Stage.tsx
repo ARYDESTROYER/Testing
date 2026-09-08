@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import gsap from 'gsap'
 import { FRAME } from '@/lib/config'
 
 /**
@@ -9,6 +10,14 @@ import { FRAME } from '@/lib/config'
  * right place on any display. `scaleRef` is handed back up so pointer maths
  * (dragging) can convert screen pixels into design units.
  */
+/**
+ * The comp is a wide artboard, and the canvas is meant for a laptop or a kiosk
+ * screen. Below this width it still works, but the chips and the input become
+ * too small to use, so the facilitator gets told rather than the participant
+ * getting a broken session.
+ */
+const MIN_USABLE_WIDTH = 820
+
 export function Stage({
   children,
   scaleRef,
@@ -18,6 +27,7 @@ export function Stage({
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
+  const [tooNarrow, setTooNarrow] = useState(false)
 
   useLayoutEffect(() => {
     const host = hostRef.current
@@ -27,6 +37,7 @@ export function Stage({
       const s = Math.min(window.innerWidth / FRAME.width, window.innerHeight / FRAME.height)
       host.style.setProperty('--s', String(s))
       if (scaleRef) scaleRef.current = s
+      setTooNarrow(window.innerWidth < MIN_USABLE_WIDTH)
     }
 
     apply()
@@ -42,6 +53,19 @@ export function Stage({
       ro.disconnect()
     }
   }, [scaleRef])
+
+  // Everything on the canvas is animated with GSAP rather than CSS, so the
+  // reduced-motion preference has to be honoured here: running the global
+  // timeline far ahead of real time lands every tween on its final value
+  // without the movement in between.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => gsap.globalTimeline.timeScale(mq.matches ? 120 : 1)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
 
   // Fonts settle after first paint; chip widths are measured against them, so
   // hold the canvas back for the tick it takes rather than reflowing visibly.
@@ -67,6 +91,12 @@ export function Stage({
       >
         {children}
       </div>
+      {tooNarrow && (
+        <div className="narrow-notice" role="status">
+          This canvas is built for a laptop or a larger screen. Open it on a wider
+          display before running a session.
+        </div>
+      )}
     </div>
   )
 }

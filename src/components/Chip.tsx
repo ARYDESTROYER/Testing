@@ -272,8 +272,8 @@ export function Chip({
       type="button"
       title={
         attribute.side === 'ys'
-          ? 'Drag onto your digital self to hand it over'
-          : 'Drag back onto your self to take it back'
+          ? `${attribute.text} — drag onto your digital self to hand it over`
+          : `${attribute.text} — drag back onto your self to take it back`
       }
       disabled={!interactive}
       onKeyDown={(e) => {
@@ -288,7 +288,7 @@ export function Chip({
         }
       }}
     >
-      {attribute.text}
+      <span>{attribute.text}</span>
     </button>
   )
 }

@@ -181,16 +181,22 @@ pip install Pillow
 python3 scripts/build_assets.py "path/to/export-everything (7)/7"
 ```
 
-### Screenshots
+### Screenshots and layout checks
 
 ```bash
 npm run dev
-node scripts/shoot.mjs screenshots
+node scripts/shoot.mjs screenshots        # a full session, one screenshot per state
+node scripts/check-viewports.mjs          # the canvas at six display sizes
 ```
 
-Runs a full session in a real browser — name, START, writing, dragging, letting
-go, the instruction cards, the verdict — and writes a numbered screenshot of
-each state.
+The first drives a whole session in a real browser — name, START, writing,
+dragging, letting go, the instruction cards, the verdict — and writes a numbered
+screenshot of each. The second reports whether anything overflows at 4K down to
+a phone, which is worth running against an unfamiliar display before a session.
+
+The artboard is wide, so on a narrow screen the canvas scales down to fit and
+the build says so rather than letting a session run on something unusable. Use a
+laptop or larger.
 
 ---
 

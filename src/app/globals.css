@@ -379,7 +379,7 @@ input {
    -------------------------------------------------------------------------- */
 
 .inputbar {
-  background: color-mix(in srgb, var(--pill) 82%, transparent);
+  background: color-mix(in srgb, var(--pill) 90%, transparent);
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -471,7 +471,7 @@ input {
   padding: 0 40px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(10px) saturate(1.4);
   -webkit-backdrop-filter: blur(10px) saturate(1.4);
   box-shadow:
@@ -484,15 +484,22 @@ input {
   line-height: 40.32px;
   font-weight: 300;
   color: #000;
-  white-space: nowrap;
-  max-width: 1000px;
+  max-width: 1150px;
   overflow: hidden;
-  text-overflow: ellipsis;
   pointer-events: auto;
   cursor: grab;
   touch-action: none;
   user-select: none;
   will-change: transform;
+}
+
+/* The chip is a flex container, so the clipping has to happen on the text
+   itself or the ellipsis never appears. */
+.chip > span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chip:focus-visible {
@@ -912,4 +919,21 @@ input {
 /* An attribute that has been let go stops taking clicks while it dissolves. */
 .chip[data-side='gone'] {
   cursor: default;
+}
+
+/* Shown only on a display too narrow to run a session on. */
+.narrow-notice {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
 }
