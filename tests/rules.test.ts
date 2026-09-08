@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { tally, type Attribute, type Side } from '@/lib/types'
-import { DEFAULT_CONFIG, configFromSearch, FRAME } from '@/lib/config'
+import { DEFAULT_CONFIG, configFromSearch, sanitizeConfig, FRAME } from '@/lib/config'
 import { DIMENSIONS } from '@/lib/prompts'
 import {
   makeRng,
@@ -434,5 +434,62 @@ describe('chips gather around their figure', () => {
       assert.ok(a.x >= z.x0 && a.x <= z.x1, `${side} anchor x`)
       assert.ok(a.y >= z.y0 && a.y <= z.y1, `${side} anchor y`)
     }
+  })
+})
+
+describe('the shared config clamp', () => {
+  test('is what the URL parser produces, so client and server cannot diverge', () => {
+    const fromUrl = configFromSearch('?seconds=45&rounds=6&min=4&max=2&every=99')
+    assert.deepEqual(sanitizeConfig(fromUrl), fromUrl)
+  })
+
+  test('refuses a session with no rounds or a negative one', () => {
+    assert.equal(sanitizeConfig({ rounds: 0 }).rounds, 1)
+    assert.equal(sanitizeConfig({ rounds: -5 }).rounds, 1)
+    assert.equal(sanitizeConfig({ roundSeconds: 0 }).roundSeconds, 5)
+  })
+
+  test('never lets the transfer interval exceed the number of rounds', () => {
+    // Otherwise the system would never take anything and the digital self would
+    // stay dark for the whole session.
+    for (const rounds of [1, 3, 8, 40]) {
+      const c = sanitizeConfig({ rounds, transferEveryNRounds: 99 })
+      assert.ok(c.transferEveryNRounds <= c.rounds, `rounds=${rounds}`)
+    }
+  })
+
+  test('keeps min below max whichever way round they arrive', () => {
+    const c = sanitizeConfig({ transferPerRoundMin: 9, transferPerRoundMax: 2 })
+    assert.equal(c.transferPerRoundMin, 2)
+    assert.equal(c.transferPerRoundMax, 9)
+  })
+
+  test('survives junk', () => {
+    for (const input of [null, undefined, 'nope', 42, { rounds: 'many' }]) {
+      const c = sanitizeConfig(input)
+      assert.ok(Number.isFinite(c.rounds) && c.rounds >= 1)
+      assert.ok(Number.isFinite(c.roundSeconds) && c.roundSeconds >= 5)
+    }
+  })
+})
+
+describe('a configured minimum of zero', () => {
+  test('lets a round legitimately take nothing', () => {
+    const config = { ...DEFAULT_CONFIG, transferPerRoundMin: 0, transferPerRoundMax: 0 }
+    const attrs = Array.from({ length: 10 }, () => attr('ys'))
+    for (let seed = 1; seed <= 20; seed++) {
+      assert.deepEqual(pickSystemTransfer(makeRng(seed), attrs, config), [])
+    }
+  })
+
+  test('still takes something when the range allows it', () => {
+    const config = { ...DEFAULT_CONFIG, transferPerRoundMin: 0, transferPerRoundMax: 3 }
+    const attrs = Array.from({ length: 10 }, () => attr('ys'))
+    const counts = new Set<number>()
+    const rng = makeRng(5)
+    for (let i = 0; i < 200; i++) counts.add(pickSystemTransfer(rng, attrs, config).length)
+    assert.ok(counts.has(0), 'never drew zero')
+    assert.ok([...counts].some((n) => n > 0), 'never drew anything')
+    assert.ok(Math.max(...counts) <= 3, `drew ${Math.max(...counts)}`)
   })
 })

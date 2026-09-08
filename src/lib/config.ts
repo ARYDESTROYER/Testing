@@ -63,6 +63,35 @@ export const COLORS = {
 } as const
 
 /**
+ * Clamp a config from anywhere — the settings panel, the URL, or a request body
+ * — to values a session can actually run with. One implementation, so the canvas
+ * can never run something different from what gets stored alongside it.
+ */
+export function sanitizeConfig(input: unknown): GameConfig {
+  const c = (input ?? {}) as Partial<GameConfig>
+  const num = (v: unknown, fallback: number, min: number, max: number) => {
+    const n = Number(v)
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback
+  }
+
+  const rounds = num(c.rounds, DEFAULT_CONFIG.rounds, 1, 40)
+  const lo = num(c.transferPerRoundMin, DEFAULT_CONFIG.transferPerRoundMin, 0, 40)
+  const hi = num(c.transferPerRoundMax, DEFAULT_CONFIG.transferPerRoundMax, 0, 40)
+
+  return {
+    roundSeconds: num(c.roundSeconds, DEFAULT_CONFIG.roundSeconds, 5, 600),
+    rounds,
+    transferPerRoundMin: Math.min(lo, hi),
+    transferPerRoundMax: Math.max(lo, hi),
+    // Taking every N rounds is meaningless past the number of rounds there are.
+    transferEveryNRounds: num(c.transferEveryNRounds, DEFAULT_CONFIG.transferEveryNRounds, 1, rounds),
+    shuffleDimensions: c.shuffleDimensions ?? DEFAULT_CONFIG.shuffleDimensions,
+    showCoachOverlays: c.showCoachOverlays ?? DEFAULT_CONFIG.showCoachOverlays,
+    allowDiscard: c.allowDiscard ?? DEFAULT_CONFIG.allowDiscard,
+  }
+}
+
+/**
  * A session can be pre-configured from the URL, which is how the facilitator
  * sets up a run for a particular participant without opening the panel:
  *   /?seconds=45&rounds=6&min=2&max=4&coach=0
@@ -86,17 +115,14 @@ export function configFromSearch(search: string): GameConfig {
     return v == null ? fallback : !['0', 'false', 'no', 'off'].includes(v.toLowerCase())
   }
 
-  const lo = num('min', DEFAULT_CONFIG.transferPerRoundMin, 0, 40)
-  const hi = num('max', DEFAULT_CONFIG.transferPerRoundMax, 0, 40)
-
-  return {
+  return sanitizeConfig({
     roundSeconds: num('seconds', DEFAULT_CONFIG.roundSeconds, 5, 600),
     rounds: num('rounds', DEFAULT_CONFIG.rounds, 1, 40),
-    transferPerRoundMin: Math.min(lo, hi),
-    transferPerRoundMax: Math.max(lo, hi),
-    transferEveryNRounds: num('every', DEFAULT_CONFIG.transferEveryNRounds, 1, 10),
+    transferPerRoundMin: num('min', DEFAULT_CONFIG.transferPerRoundMin, 0, 40),
+    transferPerRoundMax: num('max', DEFAULT_CONFIG.transferPerRoundMax, 0, 40),
+    transferEveryNRounds: num('every', DEFAULT_CONFIG.transferEveryNRounds, 1, 40),
     shuffleDimensions: bool('shuffle', DEFAULT_CONFIG.shuffleDimensions),
     showCoachOverlays: bool('coach', DEFAULT_CONFIG.showCoachOverlays),
     allowDiscard: bool('discard', DEFAULT_CONFIG.allowDiscard),
-  }
+  })
 }

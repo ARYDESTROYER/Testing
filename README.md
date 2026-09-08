@@ -135,6 +135,10 @@ run it. The JSON export keeps every answer exactly as it was typed.
 Set `TWIN_DASHBOARD_PASSWORD` to put the dashboard behind `?key=…`. It is open by
 default, which is right for a laptop in a room and wrong for the public internet.
 
+Events carry a per-session sequence number and the database treats
+`(session, seq)` as unique, so a retry after a request that actually landed
+cannot duplicate one. Attribute rows are upserted by id for the same reason.
+
 ### The tables
 
 `sessions` (id, code, name, timestamps, end reason, duration, the config it ran
@@ -205,14 +209,21 @@ quote, a newline, or a formula.
 
 ```bash
 npm run dev
-node scripts/shoot.mjs screenshots        # a full session, one screenshot per state
-node scripts/check-viewports.mjs          # the canvas at six display sizes
+npm run screenshots           # a full session, one screenshot per state
+npm run check:viewports       # the canvas at six display sizes
+npm run check:interaction     # dragging, throwing, clicking, keyboard reachability
+npm run check:persistence     # the whole write path, against a running server
 ```
 
 The first drives a whole session in a real browser — name, START, writing,
 dragging, letting go, the instruction cards, the verdict — and writes a numbered
 screenshot of each. The second reports whether anything overflows at 4K down to
 a phone, which is worth running against an unfamiliar display before a session.
+The third asserts the interaction properties a unit test cannot reach, because
+they only exist once GSAP, the stage transform and the real font are in play.
+The fourth writes one throwaway session and checks it comes back out of the
+database, the CSV and the dashboard intact — worth running against a deployment
+before trusting it with a participant.
 
 The artboard is wide, so on a narrow screen the canvas scales down to fit and
 the build says so rather than letting a session run on something unusable. Use a

@@ -150,12 +150,15 @@ export function pickSystemTransfer(
   const held = attributes.filter((a) => a.side === 'ys')
   if (!held.length) return []
 
-  const want = randInt(rng, config.transferPerRoundMin, config.transferPerRoundMax)
-  // Never take everything at once — the participant should always be left with
-  // something to decide about while rounds remain.
-  const cap = Math.max(1, Math.min(want, held.length))
+  // Exactly what was drawn, clamped to what the participant actually holds. A
+  // configured minimum of 0 means some rounds legitimately take nothing.
+  const want = Math.min(
+    randInt(rng, config.transferPerRoundMin, config.transferPerRoundMax),
+    held.length,
+  )
+  if (want <= 0) return []
   return shuffle(rng, held)
-    .slice(0, cap)
+    .slice(0, want)
     .map((a) => a.id)
 }
 

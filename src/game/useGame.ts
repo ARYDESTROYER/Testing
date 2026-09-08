@@ -103,6 +103,8 @@ export function useGame(): GameApi {
   const coachShownRef = useRef(false)
   const rafRef = useRef<number | null>(null)
   const lastTsRef = useRef<number | null>(null)
+  /** performance.now() at START. The session clock is measured against it. */
+  const startedAtRef = useRef<number | null>(null)
 
   useEffect(() => () => writerRef.current?.dispose(), [])
 
@@ -146,6 +148,7 @@ export function useGame(): GameApi {
     const s = ref.current
     if (s.phase !== 'ready') return
     lastTsRef.current = null
+    startedAtRef.current = performance.now()
     void writerRef.current?.start()
     writerRef.current?.event(event('round_start', 0, { round: 0 }))
     commit({ ...s, phase: 'playing', sessionMs: 0, roundMs: 0, roundIndex: 0 })
@@ -304,10 +307,14 @@ export function useGame(): GameApi {
     (reason: EndReason) => {
       const s = ref.current
       if (s.phase === 'ended') return
+      // Read the clock rather than the last rendered frame, so the recorded
+      // duration is right even if the verdict lands after a quiet moment.
+      const sessionMs =
+        startedAtRef.current == null ? s.sessionMs : performance.now() - startedAtRef.current
       const t = tally(s.attributes)
-      writerRef.current?.event(event('game_end', s.sessionMs, { reason, ...t, reveal: s.reveal }))
-      void writerRef.current?.end(reason, s.sessionMs)
-      commit({ ...s, phase: 'ended', endReason: reason, overlay: null })
+      writerRef.current?.event(event('game_end', sessionMs, { reason, ...t, reveal: s.reveal }))
+      void writerRef.current?.end(reason, sessionMs)
+      commit({ ...s, phase: 'ended', endReason: reason, overlay: null, sessionMs })
     },
     [commit],
   )
@@ -315,9 +322,12 @@ export function useGame(): GameApi {
   /* ---------------------------------------------------------------------------
      Clock
      -----------------------------------------------------------------------
-     The big timer counts real session time, so the recorded duration is honest.
-     Round time is a separate accumulator that holds while a coaching card is up
-     — a participant should never lose writing time to an instruction.
+     The session clock is wall clock, measured from START: a tab left in the
+     background stops firing frames, and an accumulator would quietly under-report
+     however long the participant was away. Round time is separate and does use an
+     accumulator, capped per frame and held while a coaching card is up — a
+     participant should never lose writing time to a background tab or to an
+     instruction.
      ------------------------------------------------------------------------ */
 
   useEffect(() => {
@@ -334,7 +344,8 @@ export function useGame(): GameApi {
       const s = ref.current
       if (s.phase !== 'playing') return
 
-      const sessionMs = s.sessionMs + dt
+      const sessionMs =
+        startedAtRef.current == null ? s.sessionMs + dt : ts - startedAtRef.current
       if (s.overlay || s.writingClosed) {
         commit({ ...s, sessionMs })
         return

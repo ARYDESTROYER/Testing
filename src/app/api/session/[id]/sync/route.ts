@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { saveAttributes, saveEvents } from '@/lib/db'
+import { saveAttributes, saveEvents, sessionExists } from '@/lib/db'
 import { parseSyncPayload } from '@/lib/sync'
 
 export const runtime = 'nodejs'
@@ -21,6 +21,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   }
 
   const { attributes, events, dropped } = parseSyncPayload(body)
+
+  // Rows for a session that does not exist would be accepted and then vanish
+  // from every export, which joins on sessions. Better to say so.
+  if (!(await sessionExists(id))) {
+    return NextResponse.json({ error: 'unknown session' }, { status: 404 })
+  }
   if (dropped) {
     console.warn(`[session] ${id}: dropped ${dropped} malformed item(s) from a sync`)
   }

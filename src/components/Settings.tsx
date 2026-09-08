@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { GameConfig } from '@/lib/config'
+import { sanitizeConfig, type GameConfig } from '@/lib/config'
 
 /**
  * Facilitator controls. Deliberately quiet — a nearly invisible gear in the
@@ -16,17 +16,19 @@ export function Settings({
 }: {
   config: GameConfig
   onChange: (next: GameConfig) => void
-  /** True once a session is under way; the knobs stop mattering then. */
+  /** True once the config has been fixed for this participant. */
   locked: boolean
 }) {
   const [open, setOpen] = useState(false)
 
+  // Everything goes through the same clamp the server applies, so the canvas
+  // can never run a config different from the one stored beside it.
   const num = (key: keyof GameConfig) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value)
-    if (Number.isFinite(v)) onChange({ ...config, [key]: v })
+    if (Number.isFinite(v)) onChange(sanitizeConfig({ ...config, [key]: v }))
   }
   const bool = (key: keyof GameConfig) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    onChange({ ...config, [key]: e.target.checked })
+    onChange(sanitizeConfig({ ...config, [key]: e.target.checked }))
 
   const total = config.rounds * config.roundSeconds
 
@@ -156,7 +158,7 @@ export function Settings({
 
           <div className="settings-note">
             {locked
-              ? 'A session is running — settings apply to the next participant.'
+              ? 'This participant\u2019s settings are already fixed. Changes here apply to the next one, from the name screen.'
               : `Writing runs for ${Math.floor(total / 60)}m ${String(total % 60).padStart(2, '0')}s. The canvas stays live afterwards until the participant decides.`}
           </div>
           <div className="settings-note">

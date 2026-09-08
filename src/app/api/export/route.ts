@@ -27,8 +27,18 @@ export async function GET(req: Request) {
 
     if (format === 'json') {
       const sessions = await listSessions()
-      const full = await Promise.all(sessions.map((s) => getSession(s.id)))
-      return NextResponse.json({ exportedAt: new Date().toISOString(), sessions: full.filter(Boolean) })
+      // Fetched a few at a time rather than all at once: each session is three
+      // queries, and a study with a hundred participants would otherwise open
+      // three hundred at the same moment.
+      const full = []
+      const BATCH = 8
+      for (let i = 0; i < sessions.length; i += BATCH) {
+        const page = await Promise.all(
+          sessions.slice(i, i + BATCH).map((s) => getSession(s.id)),
+        )
+        full.push(...page.filter(Boolean))
+      }
+      return NextResponse.json({ exportedAt: new Date().toISOString(), sessions: full })
     }
 
     const rows = await allAttributeRows()

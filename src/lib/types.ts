@@ -50,6 +50,11 @@ export interface GameEvent {
   /** ms since the session timer started. */
   at: number
   payload?: Record<string, unknown>
+  /**
+   * Monotonic within a session. The database treats (session, seq) as unique,
+   * so a retry after a request that actually landed cannot duplicate an event.
+   */
+  seq?: number
 }
 
 export type EndReason = 'accepted' | 'rejected' | 'timeout'

@@ -384,7 +384,11 @@ export function Experience() {
 
       {/* ---- facilitator ------------------------------------------------------ */}
       {state.phase !== 'ended' && (
-        <Settings config={config} onChange={setConfig} locked={state.phase === 'playing'} />
+        <Settings
+          config={config}
+          onChange={setConfig}
+          locked={state.phase !== 'name'}
+        />
       )}
     </Stage>
   )
