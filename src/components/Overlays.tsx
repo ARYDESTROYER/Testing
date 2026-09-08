@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
-import { NAME_PILL, centerX } from '@/game/layout'
+import { MODAL, NAME_PILL, START, centerX } from '@/game/layout'
 import type { Attribute, EndReason, Tally } from '@/lib/types'
 
 /* -----------------------------------------------------------------------------
@@ -98,8 +98,7 @@ export function NameGate({
    something.
    -------------------------------------------------------------------------- */
 
-/** Measured off the exported layer: x=1650, y=1229, 1089 x 526. */
-const MODAL = { x: 1650, y: 1229, w: 1089, h: 526 }
+
 
 export function CoachModal({
   kind,
@@ -167,11 +166,18 @@ export function CoachModal({
 
   return (
     <div className="overlay-root" ref={rootRef} role="dialog" aria-modal="true">
-      <div className="scrim" style={{ opacity: 0.55 }} onClick={close} />
+      <div className="scrim" onClick={close} />
       <div
         ref={panelRef}
         className="abs modal"
-        style={{ left: MODAL.x, top: MODAL.y, width: MODAL.w, minHeight: MODAL.h }}
+        style={{
+          left: MODAL.x,
+          top: MODAL.y,
+          width: MODAL.w,
+          minHeight: kind === 'coach-drag' ? MODAL.coachH : MODAL.transferredH,
+          paddingTop: MODAL.headingTop,
+          paddingBottom: 56,
+        }}
       >
         <div className="modal-heading" style={{ whiteSpace: 'pre-line' }}>
           {heading}
@@ -192,7 +198,18 @@ export function CoachModal({
         </div>
 
         {kind === 'coach-drag' && (
-          <button className="pill-done" onClick={close} type="button">
+          <button
+            className="pill-done"
+            onClick={close}
+            type="button"
+            style={{
+              position: 'absolute',
+              left: MODAL.doneLeft,
+              top: MODAL.doneTop,
+              width: START.w,
+              height: START.h,
+            }}
+          >
             done
           </button>
         )}
@@ -250,7 +267,7 @@ export function EndCard({
 
   return (
     <div className="overlay-root" ref={rootRef}>
-      <div className="scrim" style={{ opacity: 0.62 }} />
+      <div className="scrim" />
       <div className="abs endcard-center">
         <div className="endcard">
         <h1>{headline}</h1>

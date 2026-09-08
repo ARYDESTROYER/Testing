@@ -96,6 +96,27 @@ export const VERDICT_REJECT = { x: 1230, y: 1800, w: 576, h: 95 }
 
 export const NAME_PILL = { x: 1783, y: 1257, w: 823, h: 159 }
 
+/**
+ * The instruction cards, measured off the exported layers. Both share an origin
+ * and a width; the drag card is 104 units taller to make room for its button,
+ * which sits in exactly the START pill's slot.
+ */
+export const MODAL = {
+  x: 1650,
+  y: 1229,
+  w: 1089,
+  transferredH: 526,
+  coachH: 630,
+  /** Relative to the card's top-left corner. */
+  headingTop: 83,
+  chipRowTop: 289,
+  /** The second chip in the comp is dropped this far below the first row. */
+  chipStagger: 39,
+  doneTop: 466,
+  doneLeft: 448,
+  cornerRadius: 25,
+}
+
 export type Box = { x0: number; y0: number; x1: number; y1: number }
 
 export function centerX(width: number): number {
